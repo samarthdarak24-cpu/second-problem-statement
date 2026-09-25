@@ -409,6 +409,11 @@ will be blocked by CORS. The app is fully usable without the backend (it runs
 the simulation client-side); the backend only adds persistence and a server-side
 surrogate model.
 
+> `CORS_ORIGINS` is **comma-separated**. A JSON array is not parsed and will
+> break every browser request. See [`RENDER_DEPLOYMENT.md`](RENDER_DEPLOYMENT.md)
+> for the full walkthrough, the complete variable reference and a
+> troubleshooting table.
+
 ---
 
 ## Tech stack

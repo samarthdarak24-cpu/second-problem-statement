@@ -1,14 +1,16 @@
 # Render blueprint — deploys the FastAPI backend as a free web service with a
 # managed PostgreSQL database.
 #
-# The Next.js frontend is deployed SEPARATELY on Vercel (see vercel.json at the
-# repo root). For the two to talk:
+# The Next.js frontend is deployed SEPARATELY on Vercel (see
+# frontend/vercel.json). For the two to talk:
 #   * Vercel  → NEXT_PUBLIC_API_URL must point at THIS service's URL.
 #   * Here    → CORS_ORIGINS must list the Vercel frontend URL (replace the
 #               placeholder below with your real https://*.vercel.app domain).
 #
 # Deploy: push this repo to GitHub, then in Render click "New" → "Blueprint" and
 # select the repo. Render reads this file and creates both resources.
+#
+# Full walkthrough, variable reference and troubleshooting: RENDER_DEPLOYMENT.md
 
 databases:
   - name: thermal-shelter-db
