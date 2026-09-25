@@ -1,0 +1,60 @@
+{
+  "name": "sih-thermal-shelter",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Area-Specific Thermal Comfort Shelter Design - SIH Problem Statement 51",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf .next",
+    "verify": "npm run typecheck && npm run verify:climate && npm run verify:model && npm run verify:geometry && npm run verify:ps51 && npm run verify:dashboard",
+    "verify:climate": "tsx scripts/verify-climate.ts",
+    "verify:model": "tsx scripts/verify-model.ts",
+    "verify:geometry": "tsx scripts/verify-geometry.ts",
+    "verify:ps51": "tsx scripts/verify-ps51.ts",
+    "verify:dashboard": "tsx scripts/verify-dashboard.ts",
+    "verify:integration": "tsx scripts/verify-integration.ts",
+    "bench": "tsx scripts/bench-optimizer.ts",
+    "debug:thermal": "tsx scripts/debug-thermal.ts",
+    "export:catalogue": "tsx scripts/export-catalogue.ts",
+    "export:dataset": "tsx scripts/export-dataset.ts",
+    "train:surrogate": "tsx scripts/train-surrogate.ts"
+  },
+  "dependencies": {
+    "@react-three/drei": "9.114.0",
+    "@react-three/fiber": "8.17.10",
+    "clsx": "2.1.1",
+    "framer-motion": "^11.18.2",
+    "leaflet": "1.9.4",
+    "lucide-react": "0.453.0",
+    "next": "14.2.33",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-leaflet": "4.2.1",
+    "recharts": "2.12.7",
+    "tailwind-merge": "2.5.4",
+    "three": "0.169.0",
+    "zustand": "5.0.1"
+  },
+  "devDependencies": {
+    "@types/leaflet": "1.9.12",
+    "@types/node": "20.16.11",
+    "@types/react": "18.3.11",
+    "@types/react-dom": "18.3.1",
+    "@types/three": "0.169.0",
+    "autoprefixer": "10.4.20",
+    "eslint": "8.57.1",
+    "eslint-config-next": "14.2.33",
+    "postcss": "8.4.47",
+    "rimraf": "6.0.1",
+    "tailwindcss": "3.4.14",
+    "tsx": "^4.19.2",
+    "typescript": "5.6.3"
+  },
+  "engines": {
+    "node": ">=18.17.0"
+  }
+}

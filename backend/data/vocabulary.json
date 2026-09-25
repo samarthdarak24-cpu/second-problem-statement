@@ -1,0 +1,127 @@
+{
+  "generatedBy": "scripts/export-catalogue.ts",
+  "insulation": {
+    "levels": [
+      "none",
+      "low",
+      "medium",
+      "high",
+      "very-high"
+    ],
+    "thicknessM": {
+      "none": 0,
+      "low": 0.04,
+      "medium": 0.075,
+      "high": 0.1,
+      "very-high": 0.15
+    },
+    "label": {
+      "none": "None",
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "very-high": "Very high"
+    }
+  },
+  "ventilation": {
+    "strategies": [
+      "sealed-mechanical",
+      "single-sided",
+      "night-purge",
+      "stack-ventilation",
+      "mixed-mode",
+      "cross-ventilation"
+    ],
+    "ach": {
+      "sealed-mechanical": 0.5,
+      "single-sided": 2,
+      "night-purge": 5,
+      "stack-ventilation": 6,
+      "mixed-mode": 6,
+      "cross-ventilation": 8
+    },
+    "label": {
+      "sealed-mechanical": "Sealed + mechanical",
+      "single-sided": "Single-sided",
+      "night-purge": "Night purge",
+      "stack-ventilation": "Stack ventilation",
+      "mixed-mode": "Mixed mode",
+      "cross-ventilation": "Cross-ventilation"
+    }
+  },
+  "roof": {
+    "strategies": [
+      "flat",
+      "shed",
+      "gable",
+      "hip",
+      "vaulted"
+    ],
+    "pitchDeg": {
+      "flat": 0,
+      "shed": 20,
+      "gable": 30,
+      "hip": 30,
+      "vaulted": 35
+    },
+    "label": {
+      "flat": "Flat",
+      "shed": "Shed (mono-pitch)",
+      "gable": "Pitched gable",
+      "hip": "Pitched hip",
+      "vaulted": "Vaulted"
+    }
+  },
+  "shading": {
+    "strategies": [
+      "none",
+      "overhang",
+      "louvre",
+      "external-blind",
+      "deep-verandah",
+      "combined"
+    ],
+    "label": {
+      "none": "None",
+      "overhang": "Overhang",
+      "louvre": "Louvres",
+      "external-blind": "External blinds",
+      "deep-verandah": "Deep verandah",
+      "combined": "Overhang + fins"
+    }
+  },
+  "defaultRequirements": {
+    "width": 6,
+    "length": 4.5,
+    "height": 2.8,
+    "wallThickness": 0.23,
+    "numOccupants": 4,
+    "numRooms": 1,
+    "budget": 600000,
+    "orientation": 0,
+    "windowToWallRatio": 0.3,
+    "facadeWeights": {
+      "north": 1,
+      "east": 1,
+      "south": 1,
+      "west": 1
+    },
+    "wallMaterialId": "brick",
+    "roofMaterialId": "rcc-slab",
+    "windowMaterialId": "single",
+    "insulationLevel": "none",
+    "insulationThickness": 0,
+    "roofType": "flat",
+    "roofAngle": 0,
+    "roofOverhang": 0.3,
+    "shadingType": "none",
+    "shadingDepth": 0,
+    "ventilationType": "mixed-mode",
+    "airChangesPerHour": 3,
+    "coolingSetpoint": 26,
+    "heatingSetpoint": 18,
+    "coolingCop": 3.2,
+    "heatingEfficiency": 0.9,
+    "solarPvKwp": 0
+  }
+}

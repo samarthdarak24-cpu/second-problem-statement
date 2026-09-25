@@ -1,0 +1,426 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   Design tokens — light "warm stone" theme
+
+   Palette rationale
+   -----------------
+   The subject is thermal shelter: earth walls, ochre dust, sun on
+   rammed earth, shade. The palette is taken from that, not from a
+   UI kit.
+
+     canvas   warm off-white, never pure #fff — a pure white page
+              beside white panels flattens all depth
+     panels   pure white, so they lift off the canvas by contrast
+              alone and need almost no shadow
+     ink      warm near-black (24 10% 10%), not slate — a cool grey
+              reads as unconsidered against warm surfaces
+     accent   terracotta / rust. This is the one saturated colour and
+              it carries every action and every active state.
+     support  deep green (good), amber (caution), brick red (bad)
+
+   There is deliberately no blue and no purple anywhere in the scale,
+   and no backdrop-filter: translucency plus blur is the single most
+   recognisable "generated dashboard" tell, and it also costs real
+   GPU time on every scroll.
+   ============================================================ */
+@layer base {
+  :root {
+    /* ---- Surfaces ---- */
+    --background: 36 24% 98%; /* #FBFAF8 warm off-white canvas */
+    --foreground: 24 10% 10%; /* #1C1917 warm near-black ink */
+
+    --panel: 0 0% 100%; /* #FFFFFF */
+    --panel-foreground: 24 10% 10%;
+
+    --card: 40 22% 97%; /* #F8F6F3 */
+    --card-foreground: 24 10% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 24 10% 10%;
+
+    /* ---- Primary: terracotta. Every action, every active state. ---- */
+    --primary: 18 68% 44%; /* #BD5224 */
+    --primary-foreground: 40 40% 99%;
+
+    /* ---- Secondary / muted ---- */
+    --secondary: 36 18% 94%; /* #F2EFEB */
+    --secondary-foreground: 24 12% 20%;
+    --muted: 36 18% 95%;
+    --muted-foreground: 27 9% 43%; /* #786F68 */
+
+    /* ---- Accent: deep green. Used only for "this is working". ---- */
+    --accent: 158 46% 30%; /* #296E56 */
+    --accent-foreground: 0 0% 100%;
+
+    /* ---- Semantic ---- */
+    --destructive: 0 62% 44%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 158 46% 30%;
+    --success-foreground: 0 0% 100%;
+    --warning: 35 85% 38%;
+    --warning-foreground: 0 0% 100%;
+
+    --border: 30 14% 88%; /* #E5E0DA */
+    --input: 36 18% 94%;
+    --ring: 18 68% 44%;
+
+    --radius: 0.6rem;
+
+    --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+      'Helvetica Neue', Arial, sans-serif;
+    --font-display: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+      'Helvetica Neue', Arial, sans-serif;
+
+    /* Thermal scale — heat map legend, charts, 3D overlay.
+       Warm ramp, cool-to-hot, with no blue: stone → sage → amber → rust. */
+    --thermal-0: #6b7f6a;
+    --thermal-1: #8fa07a;
+    --thermal-2: #c9b267;
+    --thermal-3: #e0a03c;
+    --thermal-4: #d2701f;
+    --thermal-5: #a8391a;
+
+    /* Stage accents for the input→output pipeline. A four-step warm ramp
+       so the chain reads as a progression rather than as four categories. */
+    --stage-input: 28 10% 42%; /* stone */
+    --stage-analysis: 18 68% 44%; /* terracotta */
+    --stage-optimize: 35 85% 38%; /* amber */
+    --stage-output: 158 46% 30%; /* deep green */
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  /* Warm near-black text on a warm canvas needs slightly more weight to
+     hold up than the default 400. */
+  h1,
+  h2,
+  h3 {
+    @apply font-display tracking-[-0.02em];
+    text-wrap: balance;
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.18);
+  }
+}
+
+/* ============================================================
+   Components
+   ============================================================ */
+@layer components {
+  /* ---- Surfaces ---- */
+
+  .panel {
+    @apply rounded-xl border bg-panel;
+    /* A single hairline plus one very soft shadow. The reference for this
+       interface is a printed specification sheet, not a floating card. */
+    box-shadow: 0 1px 2px 0 hsl(24 20% 20% / 0.04);
+  }
+
+  /* Slightly raised surface for content that sits above the page. */
+  .surface {
+    @apply rounded-xl border bg-panel;
+    box-shadow: 0 1px 2px 0 hsl(24 20% 20% / 0.04);
+  }
+
+  .panel-header {
+    @apply flex items-center justify-between gap-3 border-b px-5 py-3.5;
+  }
+
+  .panel-title {
+    @apply font-display text-[13.5px] font-semibold tracking-[-0.01em] text-foreground;
+  }
+
+  .panel-subtitle {
+    @apply mt-0.5 text-[12px] leading-snug text-muted-foreground;
+  }
+
+  /* The letter-spaced uppercase label. Borrowed from the reference
+     configurator, where it does most of the work of making a dense
+     control panel look considered rather than cramped. */
+  .section-title,
+  .kicker {
+    @apply text-[10.5px] font-bold uppercase tracking-[0.16em] text-muted-foreground;
+  }
+
+  .stat-card {
+    @apply rounded-lg border bg-card px-4 py-3.5;
+  }
+
+  .stat-label {
+    @apply text-[10.5px] font-bold uppercase tracking-[0.14em] text-muted-foreground;
+  }
+
+  .stat-value {
+    @apply font-display text-2xl font-semibold tabular-nums leading-tight tracking-[-0.02em];
+  }
+
+  /* ---- Typography scale for the marketing surface ---- */
+
+  .display-1 {
+    @apply font-display text-[40px] font-bold leading-[1.05] tracking-[-0.03em] sm:text-[52px] lg:text-[60px];
+  }
+
+  .display-2 {
+    @apply font-display text-[28px] font-bold leading-[1.12] tracking-[-0.025em] sm:text-[34px] lg:text-[40px];
+  }
+
+  .lede {
+    @apply text-[16px] leading-relaxed text-muted-foreground sm:text-[17.5px];
+  }
+
+  /* ---- Chips ---- */
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold;
+  }
+
+  /* ---- Buttons ---- */
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-[13px] font-semibold
+           transition-[background-color,border-color,color,box-shadow] duration-150
+           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
+           focus-visible:ring-offset-background
+           disabled:cursor-not-allowed disabled:opacity-45;
+  }
+
+  .btn-primary {
+    @apply btn bg-primary text-primary-foreground;
+    box-shadow: 0 1px 2px 0 hsl(18 68% 24% / 0.22);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    @apply bg-primary/90;
+  }
+
+  .btn-secondary {
+    @apply btn border bg-panel text-foreground hover:bg-secondary;
+  }
+
+  .btn-ghost {
+    @apply btn text-muted-foreground hover:bg-secondary hover:text-foreground;
+  }
+
+  /* Near-black solid — the reference configurator's primary action.
+     Used where a control should read as neutral chrome rather than as
+     the page's main call to action. */
+  .btn-ink {
+    @apply btn bg-foreground text-background hover:bg-foreground/90;
+  }
+
+  .btn-sm {
+    @apply px-2.5 py-1.5 text-[12px];
+  }
+
+  .btn-lg {
+    @apply px-5 py-2.5 text-[14px];
+  }
+
+  /* ---- Forms ---- */
+
+  .field {
+    @apply w-full rounded-lg border bg-panel px-3 py-2 text-[13px] text-foreground
+           placeholder:text-muted-foreground/60
+           focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/25;
+  }
+
+  .select-field {
+    @apply field appearance-none bg-no-repeat pr-8;
+    /* Chevron drawn inline in the current ink colour — no icon font, no
+       network request, and it inherits the theme. */
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23786F68' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.2 6.2 8 10l3.8-3.8'/%3E%3C/svg%3E");
+    background-position: right 0.6rem center;
+    background-size: 0.95rem;
+  }
+
+  /* ---- Tabs / segmented ---- */
+
+  .tab {
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5
+           text-[12.5px] font-medium transition-colors;
+  }
+
+  .tab-active {
+    @apply bg-primary/15 text-primary ring-1 ring-inset ring-primary/30;
+  }
+
+  .tab-idle {
+    @apply text-muted-foreground hover:bg-secondary hover:text-foreground;
+  }
+
+  /* ---- Scrollbars ---- */
+
+  .scroll-area {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(30 10% 78%) transparent;
+  }
+
+  .scroll-area::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scroll-area::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scroll-area::-webkit-scrollbar-thumb {
+    background: hsl(30 10% 80%);
+    border-radius: 999px;
+  }
+
+  .scroll-area::-webkit-scrollbar-thumb:hover {
+    background: hsl(30 10% 70%);
+  }
+}
+
+/* ============================================================
+   Range sliders — the primary interaction in the design studio,
+   so they get real styling rather than the browser default.
+   ============================================================ */
+input[type='range'].slider {
+  @apply h-1.5 w-full cursor-pointer appearance-none rounded-full bg-secondary;
+  outline: none;
+}
+
+input[type='range'].slider::-webkit-slider-thumb {
+  appearance: none;
+  height: 15px;
+  width: 15px;
+  border-radius: 999px;
+  background: hsl(var(--primary));
+  border: 2px solid #fff;
+  box-shadow:
+    0 0 0 1px hsl(var(--primary) / 0.55),
+    0 1px 3px hsl(24 30% 20% / 0.28);
+  transition: transform 120ms ease;
+}
+
+input[type='range'].slider:hover::-webkit-slider-thumb {
+  transform: scale(1.14);
+}
+
+input[type='range'].slider::-moz-range-thumb {
+  height: 14px;
+  width: 14px;
+  border-radius: 999px;
+  background: hsl(var(--primary));
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px hsl(var(--primary) / 0.55);
+}
+
+input[type='range'].slider:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   Leaflet — the tiles ship dark-scheme-friendly, so no filter is
+   applied here. (The previous theme inverted the tile pane to fake a
+   dark map; on a light canvas that produces a negative image.)
+   ============================================================ */
+.leaflet-container {
+  background: hsl(36 18% 94%);
+  font-family: var(--font-sans);
+  border-radius: var(--radius);
+}
+
+.leaflet-control-attribution {
+  background: hsl(0 0% 100% / 0.88) !important;
+  color: hsl(27 9% 43%) !important;
+  font-size: 10px !important;
+}
+
+.leaflet-control-attribution a {
+  color: hsl(18 68% 44%) !important;
+}
+
+.leaflet-bar a {
+  background: #fff !important;
+  color: hsl(24 10% 10%) !important;
+  border-color: hsl(30 14% 88%) !important;
+}
+
+.leaflet-bar a:hover {
+  background: hsl(36 18% 94%) !important;
+}
+
+/* ============================================================
+   Utility helpers
+   ============================================================ */
+
+.text-thermal-cold {
+  color: var(--thermal-0);
+}
+.text-thermal-neutral {
+  color: var(--thermal-2);
+}
+.text-thermal-hot {
+  color: var(--thermal-5);
+}
+
+/* A faint measured grid, used behind hero and empty surfaces. Pure CSS —
+   no image request, and it inherits the border colour. */
+.grid-paper {
+  background-image:
+    linear-gradient(to right, hsl(var(--border) / 0.55) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(var(--border) / 0.55) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* Fades a grid or pattern out toward the edges so it never competes with
+   the content sitting on it. */
+.mask-fade-b {
+  mask-image: linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%);
+}
+
+.mask-fade-r {
+  mask-image: linear-gradient(to right, #000 0%, #000 60%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, #000 0%, #000 60%, transparent 100%);
+}
+
+/* A hairline rule that fades out, for section separation without a box. */
+.rule-fade {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    hsl(var(--border)) 12%,
+    hsl(var(--border)) 88%,
+    transparent
+  );
+}
+
+@keyframes flow-dash {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+.animate-flow-dash {
+  animation: flow-dash 1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-flow-dash,
+  .animate-pulse-ring {
+    animation: none !important;
+  }
+}

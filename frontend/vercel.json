@@ -1,0 +1,16 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "outputDirectory": ".next",
+  "git": {
+    "deploymentEnabled": {
+      "main": true
+    }
+  },
+  "env": {
+    "_comment": "Set NEXT_PUBLIC_API_URL to your Render backend URL (no trailing slash), e.g. https://thermal-shelter-api.onrender.com. The value below is a placeholder; override it in the Vercel dashboard (Project → Settings → Environment Variables) so the frontend can reach the backend. Leave it blank to run the app fully client-side.",
+    "NEXT_PUBLIC_API_URL": "https://your-backend.onrender.com"
+  }
+}

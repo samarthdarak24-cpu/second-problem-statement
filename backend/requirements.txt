@@ -1,0 +1,43 @@
+# Core runtime dependencies.
+#
+# This set is everything needed to start the service and serve every endpoint
+# except the two that touch a trained model. It is deliberately small: a
+# 200 MB scientific stack should not be a prerequisite for a service whose main
+# job is caching climate data and persisting designs.
+#
+# For the ML endpoints (`POST /api/ml/train`, `POST /api/optimize`) also install
+# `requirements-ml.txt`.
+#
+#   python -m pip install -r requirements.txt        # core
+#   python -m pip install -r requirements-ml.txt     # core + machine learning
+
+# --- Web framework ---------------------------------------------------------
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+
+# --- Validation and settings ----------------------------------------------
+pydantic==2.10.3
+pydantic-settings==2.6.1
+
+# --- HTTP client (the Open-Meteo archive) ---------------------------------
+httpx==0.28.0
+
+# --- Persistence -----------------------------------------------------------
+# SQLAlchemy 2.0 works against SQLite and PostgreSQL with no code change.
+# For PostgreSQL, also install a driver, e.g. `psycopg[binary]`.
+sqlalchemy==2.0.36
+
+# --- Numerics --------------------------------------------------------------
+# `app/ml.py` builds its feature matrix with NumPy, and imports it at module
+# scope, so this one is not optional even without a trained model.
+numpy==2.1.3
+
+# --- Tests -----------------------------------------------------------------
+pytest==8.3.4
+
+# --- PostgreSQL driver -----------------------------------------------------
+# Required when DATABASE_URL points at PostgreSQL (e.g. Render's managed Postgres
+# add-on, see render.yaml). The repository layer is identical for SQLite and
+# PostgreSQL — SQLAlchemy just needs this driver installed to open a postgres
+# connection. SQLAlchemy's `postgresql+psycopg://` URL scheme uses this package.
+psycopg[binary]==3.2.3
