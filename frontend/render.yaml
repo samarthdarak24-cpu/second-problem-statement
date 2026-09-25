@@ -1,0 +1,59 @@
+# Render Blueprint — the Next.js frontend as a STATIC SITE.
+#
+# WHY STATIC AND NOT A NODE WEB SERVICE
+# Every page in this app is a client component and the whole simulation runs in
+# the browser: no API routes, no server actions, no `next/headers`, no
+# `useSearchParams`. Nothing needs a Node process at request time, so the app is
+# exported to plain HTML/CSS/JS (`output: 'export'` in next.config.mjs) and
+# served as files. That means:
+#
+#   * free — static sites do not consume a service instance
+#   * no cold start — there is no process to spin down, so a demo opens instantly
+#   * nothing to keep warm before a presentation
+#
+# The backend is a SEPARATE service, declared in the repo-root render.yaml. The
+# two talk over HTTP; the frontend works with or without it.
+#
+# NOTE ON LOCATION: Render reads `render.yaml` from the repository ROOT by
+# default. This file lives in `frontend/` because the root one is the backend's.
+# Use it as the reference for the manual Static Site form, or merge the service
+# block below into the root file if you would rather have one Blueprint for both.
+
+services:
+  - type: web
+    name: sih-thermal-shelter-web
+    runtime: static
+
+    # Build commands run from here, so `npm install` finds frontend/package.json.
+    rootDir: frontend
+
+    buildCommand: npm install && npm run build
+
+    # Where `next build` puts the exported site. `output: 'export'` writes `out/`
+    # instead of `.next/`. Pointing Render at `.next` is the usual mistake here —
+    # it contains build metadata, not servable files.
+    staticPublishPath: ./out
+
+    envVars:
+      # Next.js 14 requires Node >= 18.17. Pin it so a future Render default
+      # change cannot silently break the build.
+      - key: NODE_VERSION
+        value: "22"
+
+      # The ONLY variable this app needs. Must be set at BUILD time, not just at
+      # runtime: `NEXT_PUBLIC_*` values are inlined into the JavaScript bundle
+      # during `next build`, so changing it later requires a redeploy, not a
+      # restart. No trailing slash.
+      #
+      # Leave it EMPTY to run the app entirely in the browser — every engine has
+      # a TypeScript implementation and no server is required. Setting it only
+      # adds the optional "Backend" mode in the header (server-side climate
+      # caching, saved designs, surrogate screening).
+      - key: NEXT_PUBLIC_API_URL
+        value: https://your-backend.onrender.com
+
+# No `routes` block on purpose. With `trailingSlash: true`, the export emits a
+# real directory per route (`dashboard/index.html`, `design/index.html`, ...),
+# which Render serves directly. A catch-all rewrite to `/index.html` — the usual
+# SPA fallback — would actively break those deep links by serving the landing
+# page for every path.
