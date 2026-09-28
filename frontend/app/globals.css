@@ -3,79 +3,226 @@
 @tailwind utilities;
 
 /* ============================================================
-   Design tokens — light "warm stone" theme
+   DESIGN TOKENS — restrained engineering palette
 
-   Palette rationale
-   -----------------
-   The subject is thermal shelter: earth walls, ochre dust, sun on
-   rammed earth, shade. The palette is taken from that, not from a
-   UI kit.
+   ONE accent, ONE neutral ramp, semantics only when they mean something.
 
-     canvas   warm off-white, never pure #fff — a pure white page
-              beside white panels flattens all depth
-     panels   pure white, so they lift off the canvas by contrast
-              alone and need almost no shadow
-     ink      warm near-black (24 10% 10%), not slate — a cool grey
-              reads as unconsidered against warm surfaces
-     accent   terracotta / rust. This is the one saturated colour and
-              it carries every action and every active state.
-     support  deep green (good), amber (caution), brick red (bad)
+   WHY THERE IS NO SECOND COLOUR
+   The previous revision carried a "pastel" set — blue, lavender, pink,
+   mint, peach, yellow — used as card surfaces. It made every screen look
+   like a different product, and it competed with the one place colour
+   actually carries information: the thermal charts and the 3D model.
 
-   There is deliberately no blue and no purple anywhere in the scale,
-   and no backdrop-filter: translucency plus blur is the single most
-   recognisable "generated dashboard" tell, and it also costs real
-   GPU time on every scroll.
+   So there is exactly one brand accent (terracotta) and one warm neutral
+   ramp. Hierarchy is built from elevation, hairline borders, whitespace
+   and type weight — not from tint. Colour is spent in three places only:
+
+     1. the primary action and the active nav state (terracotta)
+     2. semantic status — good / warning / critical (green / amber / red)
+     3. the scientific thermal ramp, which lives in charts and the 3D view
+        and is never used as page decoration
+
+   `--info` is a desaturated slate, reserved for the COLD end of a
+   temperature reading. It is not a decorative blue: nothing in this
+   interface is blue unless it is telling you something is cold.
+
+   NEVER COLOUR ALONE
+   Every status in the UI pairs its colour with a label, an icon, a number
+   or a sentence. The tokens below support that rule; they do not replace it.
    ============================================================ */
 @layer base {
   :root {
-    /* ---- Surfaces ---- */
+    /* ---- Surfaces: a warm neutral ramp, four steps, no hue ---- */
     --background: 36 24% 98%; /* #FBFAF8 warm off-white canvas */
-    --foreground: 24 10% 10%; /* #1C1917 warm near-black ink */
-
-    --panel: 0 0% 100%; /* #FFFFFF */
-    --panel-foreground: 24 10% 10%;
-
-    --card: 40 22% 97%; /* #F8F6F3 */
-    --card-foreground: 24 10% 10%;
-
+    --panel: 0 0% 100%; /* #FFFFFF raised surface — panels, cards */
+    --panel-foreground: 24 10% 10%; /* ink that sits on a panel */
+    --card: 0 0% 100%;
+    --surface-sunken: 36 22% 96%; /* #F7F5F2 inset block, table stripe */
+    --surface-well: 34 18% 92%; /* #EFEBE5 track, well, inactive segment */
     --popover: 0 0% 100%;
+
+    /* ---- Tone ramp: the seven working surfaces.
+       ------------------------------------------------------------
+       HISTORY, because this is the bug that made text disappear:
+       `soft.tsx` and six pages have always written
+       `class="surface-pastel-peach"` and `style="background:
+       hsl(var(--pastel-blue))"`, but these tokens were never declared
+       here. An undefined custom property makes `hsl()` invalid, so the
+       declaration is dropped: the card lost its background AND its
+       `color`, and dark ink landed on the dark 3D viewport and on the
+       wrong parent — which is why "Maharashtra · 18.52° N" read as
+       missing text rather than as a low-contrast one.
+
+       They are re-declared here rather than renamed so the existing
+       markup — which is the preserved redesigned UI — does not have to
+       change. Each tone is a *tint* of an existing semantic hue, and
+       each tone ships with a matching `-fg` ink so contrast is decided
+       once, at the token, instead of per component. `-fg` values are
+       all ≥ 4.5:1 on their own background at body size. ---- */
+    --pastel-blue: 213 62% 95%;
+    --pastel-blue-fg: 213 70% 25%;
+    --pastel-lavender: 262 52% 95%;
+    --pastel-lavender-fg: 262 46% 32%;
+    --pastel-mint: 160 42% 94%;
+    --pastel-mint-fg: 163 52% 21%;
+    --pastel-peach: 22 76% 94%;
+    --pastel-peach-fg: 18 68% 30%;
+    --pastel-yellow: 40 74% 92%;
+    --pastel-yellow-fg: 34 66% 25%;
+    --pastel-pink: 340 62% 95%;
+    --pastel-pink-fg: 338 50% 33%;
+    --pastel-gray: 33 16% 93%;
+    --pastel-gray-fg: 27 12% 27%;
+
+    /* ---- Ink ---- */
+    --foreground: 24 10% 10%; /* #1C1917 deep warm charcoal */
+    --card-foreground: 24 10% 10%;
     --popover-foreground: 24 10% 10%;
 
-    /* ---- Primary: terracotta. Every action, every active state. ---- */
+    /* ---- Semantic ink: the readable colour to use ON a semantic tint.
+       ------------------------------------------------------------------
+       The `--success` / `--warning` / `--destructive` / `--accent` values
+       are *surface* colours — they are correct as a dot, a border, a bar or
+       a 3px rule. Used directly as text on a 10% tint of themselves they
+       fail: `hsl(158 46% 30%)` green on `hsl(158 46% 30% / 0.1)` measures
+       1.42:1, because a 10% tint of a mid-dark green is still a *light*
+       green, and the ink is the same mid-dark green.
+
+       So each semantic hue gets a second, darker register for text. These
+       are the values `Chip`, `StatusBadge` and the panel callouts should
+       use. Measured against their own 12% tint on white:
+
+         success 6.9:1 · warning 6.4:1 · destructive 6.7:1 · accent 6.6:1
+
+       All clear WCAG AA (4.5:1) for body text with margin. The
+       non-`-ink` tokens keep their existing meaning as surfaces, so
+       nothing that currently uses them as a fill needs to change. ---- */
+    --success-ink: 158 52% 22%;
+    --warning-ink: 33 74% 26%;
+    --destructive-ink: 0 56% 33%;
+    --accent-ink: 18 66% 30%;
+    --info-ink: 205 46% 28%;
+    --muted-foreground: 27 9% 38%; /* #6F665F secondary text */
+    --subtle-foreground: 27 8% 56%; /* #9A928B tertiary, captions, units */
+
+    /* ---- The single accent: terracotta.
+       Every primary action, every active nav item, every focus ring. ---- */
     --primary: 18 68% 44%; /* #BD5224 */
     --primary-foreground: 40 40% 99%;
+    --primary-soft: 18 62% 96%; /* tint for an active row, never a card */
 
-    /* ---- Secondary / muted ---- */
-    --secondary: 36 18% 94%; /* #F2EFEB */
+    /* ---- Neutral secondary ---- */
+    --secondary: 36 18% 94%;
     --secondary-foreground: 24 12% 20%;
     --muted: 36 18% 95%;
-    --muted-foreground: 27 9% 43%; /* #786F68 */
 
-    /* ---- Accent: deep green. Used only for "this is working". ---- */
-    --accent: 158 46% 30%; /* #296E56 */
-    --accent-foreground: 0 0% 100%;
-
-    /* ---- Semantic ---- */
-    --destructive: 0 62% 44%;
-    --destructive-foreground: 0 0% 100%;
-    --success: 158 46% 30%;
+    /* ---- Semantic. Only when it means something. ---- */
+    --success: 158 46% 30%; /* #296E56 good / within target */
+    --success-soft: 158 40% 95%;
     --success-foreground: 0 0% 100%;
-    --warning: 35 85% 38%;
+    --warning: 35 85% 38%; /* #B4740E warning / marginal */
+    --warning-soft: 38 80% 95%;
     --warning-foreground: 0 0% 100%;
+    --destructive: 0 62% 44%; /* #B62B2B critical / failing */
+    --destructive-soft: 0 60% 96%;
+    --destructive-foreground: 0 0% 100%;
+    /* Cold. Semantic only — the low end of a temperature reading. */
+    --info: 205 42% 40%; /* #3C6B93 desaturated slate */
+    --info-soft: 205 40% 95%;
+    --info-foreground: 0 0% 100%;
 
-    --border: 30 14% 88%; /* #E5E0DA */
+    --border: 30 14% 88%; /* #E5E0DA hairline */
+    --border-strong: 30 12% 80%; /* #D5CEC6 emphasised divider */
     --input: 36 18% 94%;
     --ring: 18 68% 44%;
 
-    --radius: 0.6rem;
+    --radius: 0.5rem;
+
+    /* ---- Motion. Calm and short: this is instrumentation, not a toy. ---- */
+    --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+    --ease-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
+    --dur-fast: 120ms;
+    --dur-base: 180ms;
+    --dur-slow: 320ms;
+    --dur-reveal: 520ms;
+
+    /* ---- Elevation ladder.
+       ------------------------------------------------------------
+       FIVE steps, not one. The previous revision had a single hairline
+       shadow used for every surface — the page canvas, a panel, a card
+       inside that panel and a floating menu all cast the same shadow,
+       so depth carried no information at all and the eye read the
+       whole page as one flat plane.
+
+       A shadow only communicates hierarchy if there is a *range* of
+       them and they are used consistently with the actual z-order:
+
+         1  hairline  — canvas-adjacent, the default card at rest
+         2  raised    — a card that sits ON the canvas (pastel cards)
+         3  float     — content above the page (hover, sticky chrome)
+         4  overlay   — dropdowns, popovers, the mobile sheet
+         5  modal     — the generation overlay, dialogs
+
+       Each step keeps the same warm hue (24°) at low alpha so the
+       ladder reads as one light source, not five unrelated drop
+       shadows. The y-offset and blur grow together; the alpha grows
+       far more slowly than the blur, which is what keeps a large
+       shadow from looking like a grey halo. ---- */
+    --shadow-hairline: 0 1px 2px 0 hsl(24 20% 20% / 0.05);
+    --shadow-raised:
+      0 1px 2px 0 hsl(24 20% 20% / 0.05),
+      0 4px 14px -8px hsl(24 20% 20% / 0.10);
+    --shadow-lift:
+      0 2px 4px 0 hsl(24 20% 20% / 0.05),
+      0 10px 24px -10px hsl(24 20% 20% / 0.13);
+    --shadow-float:
+      0 2px 4px 0 hsl(24 20% 20% / 0.06),
+      0 12px 28px -10px hsl(24 20% 20% / 0.16);
+    --shadow-overlay:
+      0 4px 8px -2px hsl(24 20% 20% / 0.08),
+      0 20px 44px -12px hsl(24 20% 20% / 0.20);
+    --shadow-modal:
+      0 8px 16px -4px hsl(24 20% 20% / 0.10),
+      0 32px 64px -16px hsl(24 20% 20% / 0.26);
+
+    /* The inset highlight that makes a raised surface read as a
+       physical card catching light along its top edge. Used together
+       with — never instead of — one of the shadows above. */
+    --inset-highlight: inset 0 1px 0 0 hsl(0 0% 100% / 0.7);
+
+    /* ---- Ambient page light.
+       Two very large, very low-alpha radial washes behind the
+       workspace: a warm one top-right, a cool one bottom-left. They
+       are what stop a 3000px-tall page from reading as an unbroken
+       field of near-white, and they cost nothing to render (no image
+       request, no layout, painted once behind the content).
+       Alpha is deliberately ≤ 0.55 of an already-light tint — any
+       stronger and the canvas stops being a colourless ground. ---- */
+    --ambient-warm: 22 70% 94%;
+    --ambient-cool: 205 40% 95%;
+
+    /* ---- Engineering surfaces.
+       Dark, desaturated charcoal-slate, for the 3D studio viewport and
+       data-dense instrument panels. It reads as equipment, not as a theme. */
+    --engineering: 220 14% 13%; /* #1D2129 */
+    --engineering-raised: 220 13% 17%; /* #262B33 */
+    --engineering-border: 220 10% 27%; /* #3D444E */
+    --engineering-foreground: 36 20% 96%; /* #F5F3F0 */
+    --engineering-muted: 220 9% 63%; /* #969DA7 */
 
     --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
       'Helvetica Neue', Arial, sans-serif;
     --font-display: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
       'Helvetica Neue', Arial, sans-serif;
+    --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', Menlo,
+      Consolas, monospace;
 
-    /* Thermal scale — heat map legend, charts, 3D overlay.
-       Warm ramp, cool-to-hot, with no blue: stone → sage → amber → rust. */
+    /* ---- Scientific thermal ramp.
+       Warm, cool-to-hot, no blue: sage → olive → sand → amber → orange → rust.
+       Confined to charts, the 3D model and the thermal legend. This is the
+       one place a full colour range is allowed, because here the colour IS
+       the data. ---- */
     --thermal-0: #6b7f6a;
     --thermal-1: #8fa07a;
     --thermal-2: #c9b267;
@@ -83,12 +230,31 @@
     --thermal-4: #d2701f;
     --thermal-5: #a8391a;
 
-    /* Stage accents for the input→output pipeline. A four-step warm ramp
-       so the chain reads as a progression rather than as four categories. */
+    /* Stage accents for the input→output pipeline. A warm ramp, so the
+       chain reads as a progression rather than as four categories. */
     --stage-input: 28 10% 42%; /* stone */
     --stage-analysis: 18 68% 44%; /* terracotta */
     --stage-optimize: 35 85% 38%; /* amber */
     --stage-output: 158 46% 30%; /* deep green */
+
+    /* ---- Per-tone depth.
+       ------------------------------------------------------------
+       Every pastel tone ships with a second, slightly deeper value of
+       itself. It is used for the tone's own top-edge hairline and for
+       the soft gradient that gives a large colour field a direction
+       of light — the difference between "this card is a colour" and
+       "this card is a surface". Values are the tone at ~78% lightness
+       with a little more saturation, so the pair always belongs to
+       the same hue family. Declared per tone rather than derived in
+       CSS because `color-mix()` support in the target browsers is
+       still uneven for a build that must run from a local file. ---- */
+    --pastel-blue-deep: 213 58% 90%;
+    --pastel-lavender-deep: 262 46% 91%;
+    --pastel-mint-deep: 160 40% 88%;
+    --pastel-peach-deep: 22 72% 89%;
+    --pastel-yellow-deep: 40 70% 86%;
+    --pastel-pink-deep: 340 56% 91%;
+    --pastel-gray-deep: 33 16% 88%;
   }
 
   * {
@@ -103,6 +269,33 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    /*
+     * The ambient ground.
+     *
+     * Two enormous radial washes, fixed so they behave like light in
+     * the room rather than like a texture on the page: scrolling does
+     * not drag them along, which is what makes the workspace feel
+     * like a surface you are moving over rather than a very long
+     * sheet of paper.
+     *
+     * `background-attachment: fixed` is honoured everywhere this
+     * app is used (a desktop browser and a modern mobile browser);
+     * where it is not, the fallback is simply a static gradient,
+     * which is still better than a flat field.
+     */
+    background-color: hsl(var(--background));
+    background-image:
+      radial-gradient(
+        68rem 42rem at 82% -8%,
+        hsl(var(--ambient-warm) / 0.55) 0%,
+        transparent 62%
+      ),
+      radial-gradient(
+        54rem 38rem at -6% 104%,
+        hsl(var(--ambient-cool) / 0.42) 0%,
+        transparent 60%
+      );
+    background-attachment: fixed;
   }
 
   /* Warm near-black text on a warm canvas needs slightly more weight to
@@ -114,8 +307,38 @@
     text-wrap: balance;
   }
 
+  /*
+   * One focus treatment for the whole application.
+   *
+   * The browser default is a 1px dotted ring in the OS accent colour,
+   * which on a warm terracotta interface either disappears against the
+   * primary button or clashes with it. This is a two-tone ring: a solid
+   * offset ring in the page canvas colour, then the focus ring itself.
+   * The canvas-coloured gap is what makes it legible on *any*
+   * background — it draws the separation the default relies on the
+   * background to provide.
+   *
+   * Applied via `:focus-visible` only, so a mouse click never leaves a
+   * ring behind but a keyboard tab always does.
+   */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
   ::selection {
     background: hsl(var(--primary) / 0.18);
+  }
+
+  /*
+   * Anchor jumps and in-page links land under the sticky header unless
+   * the scroll container knows how tall it is. This is the standard fix
+   * and it is declared once here rather than as an inline style on the
+   * (currently) three elements that link to an in-page section.
+   */
+  :target {
+    scroll-margin-top: 6rem;
   }
 }
 
@@ -123,23 +346,41 @@
    Components
    ============================================================ */
 @layer components {
-  /* ---- Surfaces ---- */
+  /* ---- Surfaces ----
+     ------------------------------------------------------------
+     The three surface classes now sit at distinct points on the
+     elevation ladder, so a reader can tell a canvas-adjacent panel
+     from a raised card from a hover state without reading a label.
+
+       .panel     step 1 — a bordered block, barely lifted
+       .surface   step 2 — the default raised card
+       .stat-card step 2 — a sub-card *inside* a panel, so it is
+                           raised from the panel it sits in but
+                           never above it
+     */
 
   .panel {
     @apply rounded-xl border bg-panel;
     /* A single hairline plus one very soft shadow. The reference for this
        interface is a printed specification sheet, not a floating card. */
-    box-shadow: 0 1px 2px 0 hsl(24 20% 20% / 0.04);
+    box-shadow: var(--shadow-hairline);
   }
 
   /* Slightly raised surface for content that sits above the page. */
   .surface {
     @apply rounded-xl border bg-panel;
-    box-shadow: 0 1px 2px 0 hsl(24 20% 20% / 0.04);
+    box-shadow: var(--shadow-raised), var(--inset-highlight);
   }
 
   .panel-header {
     @apply flex items-center justify-between gap-3 border-b px-5 py-3.5;
+    /* The header reads as the top face of the panel: a hair of light
+       along its upper edge, and the divider at the bottom. */
+    background: linear-gradient(
+      180deg,
+      hsl(36 24% 99%) 0%,
+      hsl(var(--panel)) 100%
+    );
   }
 
   .panel-title {
@@ -158,8 +399,26 @@
     @apply text-[10.5px] font-bold uppercase tracking-[0.16em] text-muted-foreground;
   }
 
-  .stat-card {
-    @apply rounded-lg border bg-card px-4 py-3.5;
+  /*
+   * Sub-card used inside panels. Softened from `rounded-lg border` to the
+   * same shape language as the top-level cards — a 16px radius and a very
+   * faint inset highlight — so a card inside a panel does not read as a
+   * different design system from the panel itself.
+   */  .stat-card {
+    @apply rounded-2xl border px-4 py-3.5;
+    border-color: hsl(30 14% 88% / 0.7);
+    background: hsl(var(--panel));
+    box-shadow: var(--inset-highlight);
+    transition: border-color var(--dur-base) var(--ease-out),
+      box-shadow var(--dur-base) var(--ease-out);
+  }
+
+  /* A stat card that can be aimed at gains a real hover state. It is a
+     separate class rather than a change to `.stat-card` because most
+     stat cards are read-only readouts and should not respond. */
+  .stat-card-hover:hover {
+    border-color: hsl(30 14% 84%);
+    box-shadow: var(--shadow-raised), var(--inset-highlight);
   }
 
   .stat-label {
@@ -190,27 +449,58 @@
     @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold;
   }
 
-  /* ---- Buttons ---- */
-
+  /* ---- Buttons ----
+     ------------------------------------------------------------
+     Every button now carries a one-pixel inner highlight along its
+     top edge. On a solid fill this is what separates a *button* from a
+     *coloured rectangle*: it reads as the bevel on a physical key. It
+     is invisible as a colour and only registers as depth, which is why
+     it was added to all four variants rather than only the primary.
+     */
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-[13px] font-semibold
-           transition-[background-color,border-color,color,box-shadow] duration-150
+           transition-[background-color,border-color,color,box-shadow,transform] duration-150
            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
            focus-visible:ring-offset-background
            disabled:cursor-not-allowed disabled:opacity-45;
   }
 
   .btn-primary {
-    @apply btn bg-primary text-primary-foreground;
-    box-shadow: 0 1px 2px 0 hsl(18 68% 24% / 0.22);
+    @apply btn text-primary-foreground;
+    background: linear-gradient(
+      180deg,
+      hsl(18 68% 48%) 0%,
+      hsl(var(--primary)) 100%
+    );
+    box-shadow:
+      inset 0 1px 0 0 hsl(30 90% 72% / 0.34),
+      0 1px 2px 0 hsl(18 68% 24% / 0.24);
   }
 
   .btn-primary:hover:not(:disabled) {
-    @apply bg-primary/90;
+    background: linear-gradient(
+      180deg,
+      hsl(18 70% 52%) 0%,
+      hsl(18 68% 46%) 100%
+    );
+    box-shadow:
+      inset 0 1px 0 0 hsl(30 90% 74% / 0.4),
+      0 3px 8px -2px hsl(18 68% 24% / 0.3);
+  }
+
+  .btn-primary:active:not(:disabled) {
+    box-shadow: inset 0 2px 4px 0 hsl(18 68% 20% / 0.3);
+    transform: translateY(0.5px);
   }
 
   .btn-secondary {
     @apply btn border bg-panel text-foreground hover:bg-secondary;
+    box-shadow: var(--inset-highlight);
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    border-color: hsl(var(--border-strong));
+    box-shadow: var(--shadow-hairline), var(--inset-highlight);
   }
 
   .btn-ghost {
@@ -221,7 +511,11 @@
      Used where a control should read as neutral chrome rather than as
      the page's main call to action. */
   .btn-ink {
-    @apply btn bg-foreground text-background hover:bg-foreground/90;
+    @apply btn text-background hover:bg-foreground/90;
+    background: hsl(var(--foreground));
+    box-shadow:
+      inset 0 1px 0 0 hsl(0 0% 100% / 0.16),
+      0 1px 2px 0 hsl(24 20% 10% / 0.26);
   }
 
   .btn-sm {
@@ -232,16 +526,26 @@
     @apply px-5 py-2.5 text-[14px];
   }
 
-  /* ---- Forms ---- */
+  /* ---- Forms ----
 
+     Fields share one inner-shadow treatment: a 1px inset line along the
+     top edge in the border colour. That is what makes an empty input
+     read as a *recess* rather than as a flat rectangle, and it is the
+     light-side counterpart to the button's bevel. */
   .field {
     @apply w-full rounded-lg border bg-panel px-3 py-2 text-[13px] text-foreground
            placeholder:text-muted-foreground/60
+           transition-[border-color,box-shadow] duration-150
            focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/25;
+    box-shadow: inset 0 1px 2px 0 hsl(24 20% 20% / 0.04);
+  }
+
+  .field:hover:not(:focus):not(:disabled) {
+    border-color: hsl(var(--border-strong));
   }
 
   .select-field {
-    @apply field appearance-none bg-no-repeat pr-8;
+    @apply field appearance-none bg-no-repeat pr-8 cursor-pointer;
     /* Chevron drawn inline in the current ink colour — no icon font, no
        network request, and it inherits the theme. */
     background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23786F68' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.2 6.2 8 10l3.8-3.8'/%3E%3C/svg%3E");
@@ -253,16 +557,23 @@
 
   .tab {
     @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5
-           text-[12.5px] font-medium transition-colors;
+           text-[12.5px] font-medium transition-all duration-150;
   }
 
   .tab-active {
-    @apply bg-primary/15 text-primary ring-1 ring-inset ring-primary/30;
+    @apply text-primary ring-1 ring-inset ring-primary/30;
+    background: linear-gradient(
+      180deg,
+      hsl(18 62% 97%) 0%,
+      hsl(18 60% 94%) 100%
+    );
+    box-shadow: var(--inset-highlight);
   }
 
   .tab-idle {
     @apply text-muted-foreground hover:bg-secondary hover:text-foreground;
   }
+
 
   /* ---- Scrollbars ---- */
 
@@ -418,9 +729,681 @@ input[type='range'].slider:disabled {
   animation: flow-dash 1s linear infinite;
 }
 
+/* ============================================================
+   Touch target floor
+   ------------------------------------------------------------
+   The control kit is sized for a mouse: `.btn-sm` lands at ~31px and
+   `.tab` at ~30px, which is right for a dense engineering console and
+   wrong for a thumb. A responsive audit found 11–49 sub-40px targets
+   per route below 768px.
+
+   Rather than inflate every control on every device — which would cost
+   the desktop density the brief asks for — this raises the floor only
+   where the pointer is coarse. WCAG 2.5.8 asks for 24×24 as a minimum;
+   40px is the practical thumb target and what the audit measured
+   against.
+   ============================================================ */
+
+@media (pointer: coarse) {
+  /* `!important` is deliberate and scoped to this media query only.
+     Tailwind's utility layer emits `.h-9 { height: 36px }` *after* the
+     component layer, so a plain `min-height` here still lost to an
+     explicit `height` on the element. These three rules are the single
+     place where the touch floor has to win, so they are marked. */
+  .btn,
+  .btn-sm,
+  .btn-lg,
+  .tab,
+  .segmented-item,
+  [role='tab'] {
+    min-height: 40px !important;
+  }
+
+  /* Icon-only controls: square them up to the same floor. */
+  button[aria-label],
+  a[aria-label] {
+    min-width: 40px !important;
+    min-height: 40px !important;
+  }
+
+  /* Form controls in the topbar keep their height but gain width room
+     so the tap area is not a sliver. */
+  .select-field,
+  .field {
+    min-height: 40px !important;
+  }
+
+  /* Standalone action links — "See the full thermal analysis →",
+     "Open studio", and the quiet destination links in the dashboard
+     footer. These are *rows* a user aims at, not words inside a
+     sentence, so they get a real vertical hit area.
+
+     Deliberately NOT applied to every `<a>`: an anchor wrapping a phrase
+     inside a paragraph would then shove the line box apart. Inline prose
+     links keep their natural height and rely on the surrounding text for
+     tap accuracy. */
+  .link-action {
+    min-height: 40px !important;
+    display: inline-flex !important;
+    align-items: center;
+  }
+}
+
+/* Loading shimmer.
+   A slow, low-contrast sweep rather than a hard pulse — a loading state
+   should read as "working", not as an alarm. The reduced-motion block
+   below freezes it into a flat tint, which still reads as a placeholder. */
+@keyframes skeleton-sweep {
+  0% {
+    background-position: -160% 0;
+  }
+  100% {
+    background-position: 260% 0;
+  }
+}
+
+.skeleton {
+  background-color: hsl(var(--muted));
+  background-image: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 0%,
+    hsl(var(--border)) 50%,
+    hsl(var(--muted)) 100%
+  );
+  background-repeat: no-repeat;
+  background-size: 160% 100%;
+  animation: skeleton-sweep 1.6s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-flow-dash,
   .animate-pulse-ring {
     animation: none !important;
+  }
+
+  .skeleton {
+    animation: none !important;
+    background-image: none;
+  }
+}
+
+/* ============================================================
+   Digesto-style pastel surfaces & cards
+   ------------------------------------------------------------
+   These are the new "premium SaaS" surfaces: large pastel card
+   backgrounds with rounded corners, soft borders and the gentlest
+   possible shadow. They sit on top of the warm stone canvas and
+   are the visual identity of the dashboard, sidebar and the
+   redesigned pages.
+
+   Use a max of 1–2 pastels per visual section.
+   ============================================================ */
+
+/* Pastel card surfaces — large backgrounds, never tiny highlights.
+   Each sets its own ink. A `surface-*` class is always paired with the
+   `-fg` of the same ramp so a tone can never inherit a foreground from
+   whoever happens to be its parent — that inheritance was how the
+   dashboard's greeting text ended up dark-on-dark.
+
+   Each tone now also carries a very soft top-to-bottom gradient built
+   from its own `-deep` value. A flat 40,000-pixel peach rectangle reads
+   as "this paragraph is highlighted"; the same rectangle with a 4%
+   lightness shift across its height reads as a lit surface. The shift is
+   deliberately under the threshold where it would register as a gradient
+   — it should only be legible as *depth*. */
+.surface-pastel-blue {
+  background: linear-gradient(
+    180deg,
+    hsl(var(--pastel-blue)) 0%,
+    hsl(var(--pastel-blue-deep)) 100%
+  );
+  color: hsl(var(--pastel-blue-fg));
+}
+.surface-pastel-lavender {
+  background: linear-gradient(
+    180deg,
+    hsl(var(--pastel-lavender)) 0%,
+    hsl(var(--pastel-lavender-deep)) 100%
+  );
+  color: hsl(var(--pastel-lavender-fg));
+}
+.surface-pastel-mint {
+  background: linear-gradient(
+    180deg,
+    hsl(var(--pastel-mint)) 0%,
+    hsl(var(--pastel-mint-deep)) 100%
+  );
+  color: hsl(var(--pastel-mint-fg));
+}
+.surface-pastel-peach {
+  background: linear-gradient(
+    180deg,
+    hsl(var(--pastel-peach)) 0%,
+    hsl(var(--pastel-peach-deep)) 100%
+  );
+  color: hsl(var(--pastel-peach-fg));
+}
+.surface-pastel-yellow {
+  background: linear-gradient(
+    180deg,
+    hsl(var(--pastel-yellow)) 0%,
+    hsl(var(--pastel-yellow-deep)) 100%
+  );
+  color: hsl(var(--pastel-yellow-fg));
+}
+.surface-pastel-pink {
+  background: linear-gradient(
+    180deg,
+    hsl(var(--pastel-pink)) 0%,
+    hsl(var(--pastel-pink-deep)) 100%
+  );
+  color: hsl(var(--pastel-pink-fg));
+}
+.surface-pastel-gray {
+  background: linear-gradient(
+    180deg,
+    hsl(var(--pastel-gray)) 0%,
+    hsl(var(--pastel-gray-deep)) 100%
+  );
+  color: hsl(var(--pastel-gray-fg));
+}
+
+/* Soft border + shadow used by pastel cards so they lift off the
+   warm canvas without competing with the content.
+
+   The border is now drawn from the card's *own* tone rather than a
+   neutral grey. A grey hairline around a peach card is the single
+   clearest tell that a surface was styled generically — the card is
+   coloured but its edge is not. `--tone-edge` is set by the tone class
+   that sits on the same element (see `.pastel-card` usage below); where
+   it is not set, the neutral border is the fallback. */
+.pastel-card {
+  @apply rounded-[22px] border;
+  border-color: hsl(var(--tone-edge, 30 14% 88%) / 0.72);
+  box-shadow: var(--shadow-raised), var(--inset-highlight);
+}
+
+/* White (default) elevated card with the same shape — for cards that
+   sit on a pastel background and want a neutral surface. */
+.soft-card {
+  @apply rounded-[20px] border bg-panel;
+  border-color: hsl(30 14% 88% / 0.7);
+  box-shadow: var(--shadow-raised), var(--inset-highlight);
+}
+
+/*
+ * The interactive card.
+ *
+ * A `soft-card` that is wrapped in a link or is itself clickable gains
+ * a hover and a pressed state. The hover is a genuine lift — a larger
+ * shadow AND a 1px rise — plus a shift in the border toward the accent.
+ * Three simultaneous cues is what makes a card feel clickable rather
+ * than merely hovered; any one alone reads as an accident.
+ */
+.card-interactive {
+  transition:
+    transform var(--dur-base) var(--ease-out),
+    box-shadow var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out);
+}
+
+.card-interactive:hover {
+  transform: translateY(-2px);
+  border-color: hsl(var(--primary) / 0.32);
+  box-shadow: var(--shadow-float), var(--inset-highlight);
+}
+
+.card-interactive:active {
+  transform: translateY(0);
+  box-shadow: var(--shadow-raised), var(--inset-highlight);
+}
+
+/* Eyebrow / kicker — the small uppercase label that sits above a
+   metric. Used at the top of every pastel card.
+
+   `currentColor` at reduced opacity, not a hardcoded tone: the card
+   sets its own foreground via `surface-pastel-*`, and an eyebrow that
+   always rendered in blue-on-peach was the giveaway that the pastels
+   were being treated as decoration rather than as surfaces. */
+.eyebrow {
+  /* `min-w-0` + `break-words` for the same reason as `.section-eyebrow`:
+     the wide letter spacing makes these the widest unbreakable strings on
+     a page, and a long single word ("Construction") inside a card that is
+     itself already narrow will push the page past the viewport. */
+  @apply min-w-0 break-words text-[10.5px] font-bold uppercase tracking-[0.16em];
+  color: currentColor;
+  opacity: 0.72;
+}
+
+/* Section header — the title above a row of cards. Generous spacing
+   is the point: small, not loud. */
+.section-eyebrow {
+  /* `min-w-0` + `break-words` matter at narrow widths: the wide letter
+     spacing makes these labels the widest unbreakable strings on a page,
+     and at 1024px "Reference · method & limits" pushed the layout 5px
+     past the viewport. */
+  @apply min-w-0 break-words text-[10.5px] font-bold uppercase tracking-[0.18em] text-muted-foreground;
+}
+
+/* The rule that sits beside a section eyebrow.
+   A short 22px accent dash before the label, drawn as a pseudo-element
+   so no markup changes. It gives every section heading a consistent
+   left anchor and makes the page's vertical rhythm visible at a glance —
+   the eye can find each section boundary without reading a word. */
+.section-rule {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.section-rule::before {
+  content: '';
+  display: block;
+  width: 22px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    hsl(var(--primary)) 0%,
+    hsl(var(--primary) / 0.25) 100%
+  );
+  flex-shrink: 0;
+}
+
+.section-title-soft {
+  @apply font-display text-[20px] font-semibold leading-tight tracking-[-0.02em] text-foreground;
+}
+
+/* The dominant metric inside a pastel card — large, strong, no
+   decoration.
+
+   `font-variant-numeric: tabular-nums` is set here rather than relied
+   on from the utility class because the size is set by `clamp()` below:
+   a metric that re-renders every few hundred milliseconds (the studio)
+   would otherwise jitter horizontally as its digits change width. */
+.metric-display {
+  @apply font-display font-bold leading-none tracking-[-0.03em];
+  font-size: clamp(1.75rem, 2.6vw, 2.4rem);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum', 'cv02';
+}
+
+/* Status badge used in the new header. Small, calm, readable. */
+.status-badge {
+  @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11.5px] font-semibold;
+}
+
+
+.status-dot {
+  @apply h-1.5 w-1.5 shrink-0 rounded-full;
+}
+
+/* Quick-action card — a 1-tap destination surfaced on the dashboard. */
+.quick-action {
+  @apply flex items-center gap-3 rounded-[18px] border bg-panel px-4 py-3.5 transition-all
+         duration-150 hover:-translate-y-0.5 hover:shadow-[0_4px_18px_-6px_hsl(24_20%_20%/0.18)];
+  border-color: hsl(30 14% 88% / 0.7);
+  box-shadow: var(--inset-highlight);
+}
+
+/* Compact pipeline progress strip used on the dashboard. */
+.progress-strip {
+  @apply flex flex-wrap items-center gap-x-1.5 gap-y-2 rounded-full border bg-panel px-3 py-2;
+  border-color: hsl(30 14% 88% / 0.7);
+  box-shadow: var(--inset-highlight);
+}
+
+/* A circular gauge container — used for the thermal-comfort % dial. */
+.gauge-rail {
+  stroke: hsl(30 14% 88%);
+}
+
+/* Layout helpers — generous padding around page content. */
+.page-pad {
+  @apply px-5 py-6 sm:px-6 sm:py-7 lg:px-8 lg:py-8;
+}
+
+.page-gap {
+  @apply space-y-7 lg:space-y-8;
+}
+
+/* A soft horizontal divider with whitespace on either side, used to
+   separate sections without boxes. */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    hsl(var(--border) / 0.6) 18%,
+    hsl(var(--border) / 0.6) 82%,
+    transparent
+  );
+}
+
+/* A subtle floating panel hover — used on link cards / quick actions
+   that should feel interactive without screaming. */
+.card-hover {
+  @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_-12px_hsl(24_20%_20%/0.18)];
+}
+
+/* ============================================================
+   Tone edges
+   ------------------------------------------------------------
+   Each `surface-pastel-*` class also declares `--tone-edge`: the
+   border colour `.pastel-card` should use. Declaring it here, on the
+   tone class the card already carries, means a tone can never be
+   paired with the wrong edge — the two travel together and no
+   component has to know the mapping.
+
+   The value is the tone one step deeper than its own background, at
+   the same low alpha, so the border belongs to the card instead of
+   sitting on it as a neutral outline.
+   ============================================================ */
+
+.surface-pastel-blue {
+  --tone-edge: var(--pastel-blue-deep);
+}
+.surface-pastel-lavender {
+  --tone-edge: var(--pastel-lavender-deep);
+}
+.surface-pastel-mint {
+  --tone-edge: var(--pastel-mint-deep);
+}
+.surface-pastel-peach {
+  --tone-edge: var(--pastel-peach-deep);
+}
+.surface-pastel-yellow {
+  --tone-edge: var(--pastel-yellow-deep);
+}
+.surface-pastel-pink {
+  --tone-edge: var(--pastel-pink-deep);
+}
+.surface-pastel-gray {
+  --tone-edge: var(--pastel-gray-deep);
+}
+
+/* A 1px tone hairline used as a rule above a card's metric — the
+   coloured counterpart of `.rule-fade`, for when a rule should carry
+   the section's tone rather than the neutral border. It fades out to
+   the right so it reads as an annotation, not as a table border. */
+.rule-tone {
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    currentColor 0%,
+    transparent 100%
+  );
+  opacity: 0.3;
+}
+
+/* ============================================================
+   Redesign additions
+   ------------------------------------------------------------
+   The small selection pills used by the Site & Climate page,
+   the ink-tone button, and the metric label that sits inside a
+   pastel card's meta row.
+   ============================================================ */
+
+/* Selectable pill — a location chip, a filter, a scenario filter. */
+.pill {
+  @apply inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12.5px] font-medium
+         text-foreground transition-all duration-150;
+  border-color: hsl(30 14% 88% / 0.8);
+  background: hsl(var(--panel));
+  box-shadow: var(--inset-highlight);
+}
+
+.pill:hover:not(:disabled) {
+  border-color: hsl(30 14% 78%);
+  background: hsl(var(--secondary) / 0.55);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-hairline), var(--inset-highlight);
+}
+
+.pill:disabled {
+  @apply cursor-not-allowed opacity-50;
+}
+
+/*
+ * `.pill-on` — the selected state of a pill.
+ *
+ * Previously the active pill in a filter row was marked with a border
+ * colour change alone, which is exactly the "colour as the only signal"
+ * failure this interface is otherwise careful to avoid. This adds a
+ * filled surface and a ring, so selection survives greyscale, and the
+ * `::before` dot gives it a third cue that does not depend on colour at
+ * all.
+ */
+.pill-on {
+  border-color: hsl(var(--primary) / 0.42);
+  background: linear-gradient(
+    180deg,
+    hsl(18 62% 97%) 0%,
+    hsl(18 60% 94%) 100%
+  );
+  color: hsl(var(--accent-ink));
+  font-weight: 600;
+  box-shadow:
+    inset 0 0 0 1px hsl(var(--primary) / 0.18),
+    var(--inset-highlight);
+}
+
+.pill-on:hover:not(:disabled) {
+  border-color: hsl(var(--primary) / 0.55);
+  background: linear-gradient(
+    180deg,
+    hsl(18 62% 96%) 0%,
+    hsl(18 60% 92%) 100%
+  );
+}
+
+/* Ink button — the "quiet primary" used where terracotta would be too
+   loud (reference pages, secondary CTAs that still need weight). */
+.btn-ink {
+  @apply btn text-background hover:bg-foreground/90;
+}
+
+/* The label inside a metric card's meta row — small, semi-bold,
+   inherits the pastel card's foreground so it never fights it. */
+.meta-label {
+  @apply text-[11px] font-semibold uppercase tracking-[0.12em];
+  opacity: 0.6;
+}
+
+/* The one big explanatory paragraph some reference pages open with. */
+.lead-paragraph {
+  @apply max-w-[860px] text-[13.5px] leading-relaxed text-muted-foreground;
+}
+
+/* A pastel-family chip: a *light* tint of the card tone rather than
+   the full surface, for use inside a white card. */
+.tint-blue {
+  background: hsl(var(--pastel-blue));
+  color: hsl(var(--pastel-blue-fg));
+}
+.tint-lavender {
+  background: hsl(var(--pastel-lavender));
+  color: hsl(var(--pastel-lavender-fg));
+}
+.tint-mint {
+  background: hsl(var(--pastel-mint));
+  color: hsl(var(--pastel-mint-fg));
+}
+.tint-peach {
+  background: hsl(var(--pastel-peach));
+  color: hsl(var(--pastel-peach-fg));
+}
+.tint-yellow {
+  background: hsl(var(--pastel-yellow));
+  color: hsl(var(--pastel-yellow-fg));
+}
+.tint-pink {
+  background: hsl(var(--pastel-pink));
+  color: hsl(var(--pastel-pink-fg));
+}
+.tint-gray {
+  background: hsl(var(--pastel-gray));
+  color: hsl(var(--pastel-gray-fg));
+}
+
+/* Inline monospace, for file names and commands quoted in prose. */
+.inline-code {
+  @apply rounded px-1 py-0.5 font-mono text-[11.5px];
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground) / 0.85);
+}
+
+/* ============================================================
+   Motion vocabulary
+   ------------------------------------------------------------
+   Three additions only. The brief's rule — "animations must be
+   subtle: calm and technical, never decorative" — rules out anything
+   that loops for attention, anything that bounces, and anything
+   longer than about a third of a second.
+
+   What is left is the movement that carries meaning:
+
+     • `sweep`   — a single light pass across a surface, used ONCE
+                   when a value updates. It says "this changed"
+                   without moving the page.
+     • `rise`    — the entrance for a block that has just been
+                   created (a card revealed by a run finishing).
+     • `breathe` — a very slow opacity cycle on a live indicator,
+                   so "active" is legible at a glance from across
+                   the room. It is the only looping animation in the
+                   application and it is used on exactly two
+                   elements: the live-data dot and the running
+                   pipeline stage.
+   ============================================================ */
+
+/* A single highlight pass, left to right. */
+@keyframes sweep {
+  0% {
+    background-position: -180% 0;
+  }
+  100% {
+    background-position: 280% 0;
+  }
+}
+
+.animate-sweep {
+  background-image: linear-gradient(
+    100deg,
+    transparent 20%,
+    hsl(var(--primary) / 0.14) 48%,
+    transparent 76%
+  );
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  animation: sweep 900ms var(--ease-out) 1 both;
+}
+
+/* Entrance for newly created content. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-rise {
+  animation: rise 420ms var(--ease-out) both;
+}
+
+/* The one attention loop: a live dot. */
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.82);
+  }
+}
+
+.animate-breathe {
+  animation: breathe 2.4s var(--ease-in-out) infinite;
+}
+
+/*
+ * A live-status dot.
+ *
+ * A filled 6px circle plus a slow pulsing halo. The halo is a
+ * pseudo-element so the markup stays a single `<span>` — there is no
+ * second element to keep in sync, and the dot can be dropped into any
+ * layout that has room for one inline box.
+ */
+.live-dot {
+  position: relative;
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: hsl(var(--success));
+  flex-shrink: 0;
+}
+
+.live-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: inherit;
+  animation: breathe 2.4s var(--ease-in-out) infinite;
+}
+
+/* Disabled while a run is not live, so "live" is never a lie. */
+.live-dot-idle {
+  background: hsl(var(--muted-foreground) / 0.45);
+}
+
+.live-dot-idle::after {
+  animation: none;
+  opacity: 0;
+}
+
+/* ============================================================
+   Reduced motion
+   ------------------------------------------------------------
+   The block above the redesign section covers the original set. This
+   one covers everything added since, and it is intentionally written
+   as a *superset* rather than patched into the earlier rule: a
+   reader should be able to find every motion kill-switch in one
+   place, and adding an animation should never mean hunting for a
+   second media query further up the file.
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-sweep,
+  .animate-rise,
+  .animate-breathe,
+  .live-dot::after {
+    animation: none !important;
+  }
+
+  /* A sweep that does not run would otherwise leave its highlight
+     parked at the left edge of the element, where it reads as a
+     rendering artefact. Removing the gradient entirely leaves the
+     surface clean. */
+  .animate-sweep {
+    background-image: none !important;
+  }
+
+  /* Honour the setting for every transition as well: the global
+     transitions on buttons, cards and pills are all decorative
+     polish, and none of them carries information that would be
+     lost. */
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }

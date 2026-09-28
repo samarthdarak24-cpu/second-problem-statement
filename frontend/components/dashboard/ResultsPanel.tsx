@@ -670,7 +670,12 @@ export function ResultsPanel() {
                 })}
               </ul>
 
-              <p className="border-t border-primary/20 px-2.5 py-1.5 text-[9.5px] leading-snug text-muted-foreground/70">
+              {/* This carries the most consequential caveat on the page —
+                 that the surrogate's numbers are predictions, not
+                 simulations. At 9.5px and 70% opacity it was the least
+                 legible text here, which is the wrong way round. Raised
+                 to the 11.5px body-caption floor at full muted contrast. */}
+              <p className="border-t border-primary/20 px-2.5 py-2 text-[11.5px] leading-relaxed text-muted-foreground">
                 Ranked by a gradient-boosted model trained on the physics engine&rsquo;s own output
                 (model {surrogateScreening.modelId.slice(0, 8)}). These are predictions, not
                 simulations — the ± figures are the model&rsquo;s held-out mean absolute error. The

@@ -1,0 +1,21 @@
+{
+  "logs": [
+    "[info] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold",
+    "[error] Failed to load resource: the server responded with a status of 404 (Not Found)"
+  ],
+  "canvasReport": [
+    {
+      "w": 416,
+      "h": 378,
+      "attrW": 416,
+      "attrH": 378,
+      "note": "has-context"
+    }
+  ],
+  "pixelStats": [
+    {
+      "len": 271606,
+      "prefix": "data:image/png;base64,"
+    }
+  ]
+}

@@ -49,6 +49,12 @@ import {
 } from '@/lib/buildingTypes';
 import { GLAZING_BIAS_OPTIONS, glazingBiasOption, isGlazingBiasId } from '@/lib/glazingBias';
 import { ROOF_ASSEMBLY_OPTIONS, WALL_ASSEMBLY_OPTIONS } from '@/thermal/assemblies';
+import {
+  applyMissionProfile,
+  isMissionProfileId,
+  MISSION_OPTIONS,
+  missionProfile,
+} from '@/lib/missions';
 
 /* ------------------------------------------------------------------ */
 /* The programme                                                       */
@@ -76,6 +82,9 @@ export function defaultRequirements(): BuildingParameters {
     numOccupants: 4,
     numRooms: 1,
     budget: 600_000,
+
+    /* Mission — what the shelter is deployed to do. */
+    missionProfile: 'personnel-accommodation',
 
     /* Orientation — long axis east–west, the conventional default */
     orientation: 0,
@@ -140,6 +149,7 @@ export type NumericParameterKey =
 /** String parameters a select is allowed to write to. */
 export type SelectParameterKey =
   | 'buildingType'
+  | 'missionProfile'
   | 'insulationLevel'
   | 'wallMaterialId'
   | 'roofMaterialId'
@@ -563,10 +573,19 @@ export function parameterGroups(parameters: BuildingParameters): ParameterGroup[
   const template = buildingType(parameters.buildingType);
   const { min: floorMin, max: floorMax } = template.massing.floors;
 
+  /*
+   * The mission is programme, like the building type: it is a fact about the
+   * deployment rather than a search variable, and choosing one sets the
+   * occupancy, the equipment list and the setpoints together. It is therefore
+   * its own group at the top of the panel, ahead of the envelope the optimiser
+   * is allowed to move.
+   */
+  const mission = parameters.missionProfile ? missionProfile(parameters.missionProfile) : null;
+
   return [
     {
       id: 'building-type',
-      label: 'Building type',
+      label: 'Shelter type',
       note: template.summary,
       accent: 'analysis',
       fields: [
@@ -591,6 +610,23 @@ export function parameterGroups(parameters: BuildingParameters): ParameterGroup[
             floorMin === floorMax
               ? `${template.label} is single-storey by definition.`
               : `${template.label} allows ${floorMin}–${floorMax} storeys. A storey count is programme, not a search variable.`,
+        },
+      ],
+    },
+    {
+      id: 'mission',
+      label: 'Mission',
+      note: 'What the shelter is deployed to do. The mission sets the occupancy, the equipment load and the temperature targets.',
+      accent: 'input',
+      fields: [
+        {
+          kind: 'select',
+          key: 'missionProfile',
+          label: 'Mission profile',
+          options: MISSION_OPTIONS,
+          hint: mission
+            ? `${mission.activity} · ${mission.occupants} occupant${mission.occupants === 1 ? '' : 's'} · target ${mission.targetTemp.min}–${mission.targetTemp.max} °C · RH ${mission.targetHumidity.min}–${mission.targetHumidity.max} % · ${mission.operatingHours} h/day${mission.continuous ? ' continuous' : ''}. ${mission.rationale}`
+            : 'Choosing a mission sets the occupancy, the equipment load and the setpoints together.',
         },
       ],
     },
@@ -643,6 +679,13 @@ export function withSelectParameter(
        * apart. `applyBuildingType` is the single place that knows how to do it.
        */
       return isBuildingTypeId(value) ? applyBuildingType(parameters, value) : parameters;
+    case 'missionProfile':
+      /*
+       * A mission is not a field assignment either: it sets occupancy, the
+       * equipment list and the setpoints together, so `applyMissionProfile` is
+       * the single place that knows how to do it.
+       */
+      return isMissionProfileId(value) ? applyMissionProfile(parameters, value) : parameters;
     case 'insulationLevel':
       return { ...parameters, insulationLevel: value as InsulationLevel };
     case 'roofType':

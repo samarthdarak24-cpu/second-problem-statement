@@ -1,0 +1,66 @@
+{
+  "generatedBy": "scripts/export-dataset.ts",
+  "featureNames": [
+    "latitude",
+    "elevation_m",
+    "annual_mean_temp_c",
+    "max_temp_c",
+    "min_temp_c",
+    "diurnal_swing_k",
+    "relative_humidity_pct",
+    "wind_speed_ms",
+    "daily_solar_kwh_m2",
+    "rainfall_mm",
+    "floor_area_m2",
+    "volume_m3",
+    "aspect_ratio",
+    "height_m",
+    "wall_thickness_m",
+    "occupants",
+    "occupant_density_per_m2",
+    "orientation_sin",
+    "orientation_cos",
+    "window_to_wall_ratio",
+    "insulation_thickness_m",
+    "insulation_level_index",
+    "wall_material_index",
+    "roof_material_index",
+    "window_material_index",
+    "wall_u_value",
+    "roof_u_value",
+    "window_u_value",
+    "window_shgc",
+    "wall_areal_heat_capacity",
+    "roof_type_index",
+    "roof_angle_deg",
+    "roof_overhang_m",
+    "shading_type_index",
+    "shading_depth_m",
+    "ventilation_type_index",
+    "air_changes_per_hour",
+    "cooling_setpoint_c",
+    "heating_setpoint_c",
+    "cooling_cop",
+    "heating_efficiency",
+    "solar_pv_kwp"
+  ],
+  "targetNames": [
+    "energy_use_intensity_kwh_m2_yr",
+    "adaptive_comfort_hours_pct",
+    "cost_per_m2_inr"
+  ],
+  "featureCount": 42,
+  "gate": {
+    "minSpearman": [
+      0.9,
+      0.9,
+      0.9
+    ],
+    "maxMae": [
+      15,
+      6,
+      2500
+    ]
+  },
+  "note": "Written from ml/features.ts and ml/surrogate.ts. backend/app/ml.py refuses to train if its copies disagree."
+}

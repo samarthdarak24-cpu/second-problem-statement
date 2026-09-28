@@ -53,6 +53,8 @@ catch a unit error; that can.
 
 ## Quick start
 
+### Local Development
+
 ```bash
 cd backend
 
@@ -73,6 +75,20 @@ cd backend
 
 - API docs: <http://127.0.0.1:8000/docs>
 - Health: <http://127.0.0.1:8000/api/health>
+
+### Deploy to Render (Production)
+
+**See [../RENDER_DEPLOYMENT.md](../RENDER_DEPLOYMENT.md) for complete guide.**
+
+Quick deploy:
+1. Push to GitHub
+2. Use `render.yaml` blueprint in Render dashboard
+3. Connect repository → Auto-deploy
+
+Environment variables for Render (use `.env.render` as reference):
+- `DATABASE_URL` — Auto-filled by Render PostgreSQL
+- `CORS_ORIGINS` — Add your frontend URLs
+- `SECRET_KEY` — Click "Generate" in Render dashboard
 
 ### Why two requirements files
 

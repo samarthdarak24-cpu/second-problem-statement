@@ -34,6 +34,25 @@ const TONE_VAR: Record<Tone, string> = {
   accent: 'var(--accent)',
 };
 
+/**
+ * The *text* register of each tone.
+ *
+ * A chip draws its ink on a 12% tint of its own hue. Using the surface value
+ * for both halves of that pair is what made every coloured chip in the app
+ * measure between 1.0:1 and 1.5:1 — a mid-dark green word on a light green
+ * wash of the same mid-dark green. These `-ink` values are the dark end of
+ * the same hue, and each clears WCAG AA on its own tint.
+ *
+ * `neutral` has no paired tint worth darkening, so it keeps the foreground.
+ */
+const TONE_INK_VAR: Record<Tone, string> = {
+  neutral: 'var(--foreground)',
+  good: 'var(--success-ink)',
+  warn: 'var(--warning-ink)',
+  bad: 'var(--destructive-ink)',
+  accent: 'var(--accent-ink)',
+};
+
 /* ------------------------------------------------------------------ */
 /* Panel                                                               */
 /* ------------------------------------------------------------------ */
@@ -63,12 +82,19 @@ export function Panel({
 }: PanelProps) {
   return (
     <section className={cn('panel relative flex min-h-0 flex-col overflow-hidden', className)}>
+      {/*
+        A 2px accent hairline along the top edge rather than a 3px stripe down
+        the left. The left stripe made every panel read as a warning banner and
+        stacked into a picket fence when three sat in a row; the top rule keeps
+        the same colour coding — which stage this panel belongs to — without
+        dominating the composition.
+      */}
       <span
         aria-hidden
-        className="absolute inset-y-0 left-0 w-[3px]"
-        style={{ background: `hsl(${ACCENT_VAR[accent]} / 0.8)` }}
+        className="absolute inset-x-0 top-0 h-[2px]"
+        style={{ background: `hsl(${ACCENT_VAR[accent]} / 0.7)` }}
       />
-      <header className="panel-header pl-6">
+      <header className="panel-header">
         <div className="min-w-0">
           <h2 className="panel-title truncate">{title}</h2>
           {subtitle ? <p className="panel-subtitle truncate">{subtitle}</p> : null}
@@ -108,9 +134,9 @@ export function Chip({
       title={title}
       className={cn('chip', className)}
       style={{
-        color: `hsl(${TONE_VAR[tone]})`,
-        borderColor: `hsl(${TONE_VAR[tone]} / 0.35)`,
-        background: `hsl(${TONE_VAR[tone]} / 0.1)`,
+        color: `hsl(${TONE_INK_VAR[tone]})`,
+        borderColor: `hsl(${TONE_VAR[tone]} / 0.32)`,
+        background: `hsl(${TONE_VAR[tone]} / 0.12)`,
       }}
     >
       {children}
@@ -215,6 +241,65 @@ export function MetricRow({
         {value}
       </span>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Grouped card — the white sub-card used *inside* a panel             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A soft white block for grouping related readouts inside a panel.
+ *
+ * Exists so the many `rounded-md border bg-card/40 px-2.5 py-2` literals
+ * scattered through the dashboard become one named thing. That literal was
+ * also producing a slightly muddy translucent surface on the pastel canvas;
+ * this is opaque, has the new radius, and matches the card language.
+ */
+export function CardBlock({
+  title,
+  right,
+  children,
+  className,
+}: {
+  title?: string;
+  right?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn('rounded-2xl border px-4 py-3.5', className)}
+      style={{ borderColor: 'hsl(30 14% 88% / 0.7)', background: 'hsl(var(--panel))' }}
+    >
+      {title || right ? (
+        <div className="mb-1.5 flex items-center justify-between gap-2">
+          {title ? (
+            <h3 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              {title}
+            </h3>
+          ) : null}
+          {right ? <div className="shrink-0">{right}</div> : null}
+        </div>
+      ) : null}
+      {children}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* File — the provenance tag used under a card's heading               */
+/* ------------------------------------------------------------------ */
+
+/** A one-line note under a card explaining where its numbers came from. */
+export function NoteLine({ children, tone = 'neutral' }: { children: ReactNode; tone?: Tone }) {
+  return (
+    <p
+      className="mt-1.5 text-[12px] leading-snug"
+      style={{ color: `hsl(${TONE_VAR[tone]} / 0.72)` }}
+    >
+      {children}
+    </p>
   );
 }
 
@@ -435,6 +520,108 @@ export function EmptyState({ message, hint }: { message: string; hint?: string }
     <div className="flex h-full min-h-[120px] flex-col items-center justify-center gap-1.5 px-6 py-8 text-center">
       <p className="text-[14px] font-medium text-muted-foreground">{message}</p>
       {hint ? <p className="max-w-[320px] text-[12.5px] leading-snug text-muted-foreground/60">{hint}</p> : null}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Loading skeletons                                                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * A shimmering placeholder block.
+ *
+ * The workspace had no loading primitive: while the pipeline ran, pages
+ * either showed a spinner or nothing at all, which reads as a blank box
+ * on first paint. This is the base shape the others compose from.
+ *
+ * `aria-hidden` because the region it stands in carries `aria-busy`, and
+ * a screen reader should hear one status line, not a dozen empty boxes.
+ */
+export function Skeleton({
+  className,
+  width,
+  height,
+}: {
+  className?: string;
+  width?: number | string;
+  height?: number | string;
+}) {
+  return (
+    <span
+      aria-hidden
+      className={cn('skeleton block rounded-md', className)}
+      style={{ width, height }}
+    />
+  );
+}
+
+/**
+ * A metric placeholder — matches the shape of `MetricCard` so the page
+ * does not reflow when the real number lands.
+ */
+export function MetricSkeleton() {
+  return (
+    <div className="soft-card px-5 py-4" aria-hidden>
+      <Skeleton height={10} width="42%" />
+      <Skeleton className="mt-3" height={26} width="58%" />
+      <Skeleton className="mt-3" height={9} width="72%" />
+    </div>
+  );
+}
+
+/**
+ * A generic panel placeholder. `rows` controls how much body text is
+ * suggested, so a tall panel and a short one look different while
+ * loading rather than identically empty.
+ */
+export function PanelSkeleton({
+  rows = 3,
+  height,
+  className,
+}: {
+  rows?: number;
+  height?: number | string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn('soft-card px-5 py-4', className)}
+      style={height ? { height } : undefined}
+      aria-hidden
+    >
+      <Skeleton height={11} width="34%" />
+      <div className="mt-4 space-y-2.5">
+        {Array.from({ length: rows }).map((_, index) => (
+          <Skeleton key={index} height={10} width={index === rows - 1 ? '68%' : '100%'} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Server-rendered loading state for a whole route.
+ *
+ * Next renders this instantly while a route segment's JS is in flight,
+ * which is the difference between "the app is thinking" and "the app is
+ * broken".
+ */
+export function PageSkeleton() {
+  return (
+    <div className="page-pad page-gap" aria-busy="true" aria-live="polite">
+      <span className="sr-only">Calculating thermal response…</span>
+      <div aria-hidden>
+        <Skeleton height={11} width="90px" />
+        <Skeleton className="mt-3" height={28} width="240px" />
+        <Skeleton className="mt-3" height={13} width="420px" />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-hidden>
+        <MetricSkeleton />
+        <MetricSkeleton />
+        <MetricSkeleton />
+      </div>
+      <PanelSkeleton rows={4} height={280} />
     </div>
   );
 }

@@ -45,6 +45,20 @@ export const SURFACE_RESISTANCE = {
   window: 0,
 } as const;
 
+/**
+ * The same films, split into their internal and external halves.
+ *
+ * The interstitial condensation check needs the two separately: the temperature
+ * profile it builds starts at the *internal surface* rather than at the indoor
+ * air, so it has to apply the internal film on its own. They sum to
+ * `SURFACE_RESISTANCE` above — a test asserts that — so the U-value and the
+ * condensation check cannot drift apart by quietly using different films.
+ */
+export const SURFACE_FILM = {
+  wall: { internal: 0.13, external: 0.04 },
+  roof: { internal: 0.1, external: 0.04 },
+} as const;
+
 function wall(
   id: string,
   name: string,
@@ -121,6 +135,7 @@ function glazing(
   vlt: number,
   cost: number,
   note: string,
+  extra: Partial<MaterialProperties> = {},
 ): MaterialProperties {
   return {
     id,
@@ -141,6 +156,7 @@ function glazing(
     roughness: 0.05,
     metalness: 0,
     note,
+    ...extra,
   };
 }
 
@@ -174,7 +190,7 @@ function door(
   airPermeability: number,
   cost: number,
   note: string,
-  extra: { embodiedCarbon?: number } = {},
+  extra: Partial<MaterialProperties> = {},
 ): MaterialProperties {
   return {
     id,
@@ -201,15 +217,15 @@ export const DOOR_MATERIALS: MaterialProperties[] = [
   door('door-timber', 'Solid timber door', 0.14, 0.04, 2.2, 650, 1600, 0.55,
     '#6b4a2f', 4.0, 9000,
     'Traditional plank door. Reasonable mass, poor air-tightness without draught sealing.',
-    { embodiedCarbon: 45 }),
+    { vapourResistivity: 50, embodiedCarbon: 45 }),
   door('door-insulated', 'Insulated composite door', 0.04, 0.055, 1.1, 700, 1400, 0.5,
     '#7d6a58', 2.0, 16000,
     'Foam-cored leaf with a sealed frame — roughly half the loss of a solid timber door.',
-    { embodiedCarbon: 70 }),
+    { vapourResistivity: 200, embodiedCarbon: 70 }),
   door('door-metal', 'Insulated steel door', 0.045, 0.06, 1.4, 1200, 480, 0.35,
     '#8d949c', 1.5, 19000,
     'Durable and airtight; a metal leaf is a poor insulator unless it is cored.',
-    { embodiedCarbon: 130 }),
+    { vapourResistivity: 1000000, embodiedCarbon: 130 }),
 ];
 
 /* ------------------------------------------------------------------ */
@@ -219,28 +235,57 @@ export const DOOR_MATERIALS: MaterialProperties[] = [
 export const WALL_MATERIALS: MaterialProperties[] = [
   wall('rcc', 'Reinforced concrete', 1.7, 0.15, 3400, 2400, 880, 0.65,
     '#b9b3a8', 'High strength and mass; poor insulator on its own.',
-    { embodiedCarbon: 320 }),
+    { vapourResistivity: 100, embodiedCarbon: 320 }),
   wall('brick', 'Burnt clay brick', 0.7, 0.23, 2350, 1800, 880, 0.7,
     '#9c5a4a', 'Familiar, breathable and reasonably insulating at 230 mm.',
-    { embodiedCarbon: 210 }),
+    { vapourResistivity: 10, embodiedCarbon: 210 }),
   wall('flyash-brick', 'Fly-ash brick', 0.55, 0.23, 2050, 1500, 900, 0.62,
     '#a8a29b', 'Lower embodied energy than fired clay; slightly better U-value.',
-    { embodiedCarbon: 130 }),
+    { vapourResistivity: 10, embodiedCarbon: 130 }),
   wall('aac', 'AAC block', 0.16, 0.2, 3100, 600, 1000, 0.55,
     '#e6e3da', 'Autoclaved aerated concrete — light, insulating, fast to build.',
-    { embodiedCarbon: 180 }),
+    { vapourResistivity: 10, embodiedCarbon: 180 }),
   wall('hollow-block', 'Hollow concrete block', 0.6, 0.2, 2600, 1400, 880, 0.68,
     '#c8c4ba', 'Cellular block that trades mass for insulation.',
-    { embodiedCarbon: 160 }),
+    { vapourResistivity: 30, embodiedCarbon: 160 }),
   wall('rammed-earth', 'Rammed earth', 0.8, 0.3, 1750, 1900, 900, 0.55,
     '#8a6b4f', 'Very high thermal mass — excellent where the day–night swing is large.',
-    { embodiedCarbon: 40 }),
+    { vapourResistivity: 8, embodiedCarbon: 40 }),
   wall('stone', 'Local stone masonry', 1.2, 0.35, 2200, 2200, 900, 0.6,
     '#8d8b86', 'Durable and locally available; heavy, with useful time lag.',
-    { embodiedCarbon: 90 }),
+    { vapourResistivity: 25, embodiedCarbon: 90 }),
   wall('insulated-aac', 'Insulated AAC wall', 0.16, 0.2, 4150, 620, 1000, 0.5,
     '#dcd9d0', 'AAC core with an integral 50 mm EPS layer — best wall U-value here.',
-    { embodiedCarbon: 250 }),
+    { vapourResistivity: 10, embodiedCarbon: 250 }),
+
+  /* ---------------------- Defence shelter fabrics & panels ----------------------
+   *
+   * A deployed shelter is not built from masonry. These are the materials the
+   * DRDO shelter library is actually made of: coated fabrics for tents,
+   * sandwich panels for cabins and prefabricated modules, and an earth berm for
+   * a semi-underground position. Their very low mass is the point — a tent has
+   * almost no thermal storage, which is why its comfort comes from insulation
+   * and ventilation rather than from mass, and the model reproduces that rather
+   * than flattering the fabric.
+   * --------------------------------------------------------------------------- */
+  wall('pvc-fabric', 'PVC-coated polyester fabric', 0.16, 0.0008, 1800, 1300, 1400, 0.35,
+    '#c9b79a', 'The standard tent skin. Waterproof and tough, but a very poor insulator on its own.',
+    { vapourResistivity: 3000, embodiedCarbon: 55, airPermeability: 6 }),
+  wall('pu-fabric', 'PU-coated ripstop fabric', 0.14, 0.001, 2400, 1250, 1400, 0.3,
+    '#b8c2b0', 'Lighter and more UV-stable than PVC; a lower solar absorptance keeps a desert tent cooler.',
+    { vapourResistivity: 2000, embodiedCarbon: 48, airPermeability: 5 }),
+  wall('sandwich-panel', 'PUF sandwich panel', 0.028, 0.06, 3200, 45, 1400, 0.5,
+    '#9aa3ad', 'Prefabricated rigid panel with a foam core — the cabin and module workhorse.',
+    { vapourResistivity: 60, embodiedCarbon: 260, airPermeability: 2 }),
+  wall('insulated-panel', 'Mineral-wool sandwich panel', 0.045, 0.075, 3600, 90, 1300, 0.55,
+    '#c4c0b6', 'Fire-safe core in the same panel format; slightly worse U-value, much better fire performance.',
+    { vapourResistivity: 60, embodiedCarbon: 190, airPermeability: 2 }),
+  wall('steel-sheet', 'Profiled steel sheet (uninsulated)', 50, 0.001, 1900, 7850, 480, 0.65,
+    '#5b6068', 'The cheapest possible skin and effectively no insulation at all — a bare equipment box.',
+    { vapourResistivity: 1000000, embodiedCarbon: 130, airPermeability: 3 }),
+  wall('soil-berm', 'Earth berm / soil backfill', 0.9, 0.6, 1500, 1800, 1000, 0.6,
+    '#6f5b45', 'Soil placed against the envelope. High mass, moderate resistance, and it cuts the diurnal swing dramatically.',
+    { vapourResistivity: 8, embodiedCarbon: 12, airPermeability: 1 }),
 ];
 
 /* ------------------------------------------------------------------ */
@@ -250,22 +295,33 @@ export const WALL_MATERIALS: MaterialProperties[] = [
 export const ROOF_MATERIALS: MaterialProperties[] = [
   roof('rcc-slab', 'RCC slab with terrace', 1.7, 0.16, 3200, 2400, 880, 0.68,
     '#b5afa4', 'Standard flat roof; needs insulation or a reflective finish.',
-    { embodiedCarbon: 300 }),
+    { vapourResistivity: 100, embodiedCarbon: 300 }),
   roof('metal-sheet', 'Profiled metal sheet', 50, 0.0006, 1450, 7850, 480, 0.75,
     '#5b6068', 'Cheapest and lightest, but almost no thermal resistance.',
-    { embodiedCarbon: 90 }),
+    { vapourResistivity: 1000000, embodiedCarbon: 90 }),
   roof('reflective-roof', 'Reflective cool roof', 1.7, 0.16, 3550, 2400, 880, 0.28,
     '#f2f0ea', 'White high-albedo finish — cuts roof solar gain dramatically in hot climates.',
-    { embodiedCarbon: 310 }),
+    { vapourResistivity: 1000000, embodiedCarbon: 310 }),
   roof('insulated-roof', 'Insulated RCC roof', 1.7, 0.16, 4900, 2400, 880, 0.45,
     '#d8d3c8', 'RCC with a 75 mm XPS layer; the workhorse for hot and cold climates.',
-    { embodiedCarbon: 420 }),
+    { vapourResistivity: 60, embodiedCarbon: 420 }),
   roof('puf-panel', 'Insulated PUF panel', 0.024, 0.06, 4100, 40, 1400, 0.5,
     '#9aa3ad', 'Sandwich panel with a very low U-value; fast to erect.',
-    { embodiedCarbon: 260 }),
+    { vapourResistivity: 60, embodiedCarbon: 260 }),
   roof('mud-phuska', 'Mud-phuska thatch', 0.5, 0.25, 1250, 900, 1200, 0.5,
     '#a98b62', 'Traditional low-cost roof with excellent insulation and low embodied energy.',
-    { embodiedCarbon: 25 }),
+    { vapourResistivity: 10, embodiedCarbon: 25 }),
+
+  /* ---------------------- Defence shelter roofs ---------------------- */
+  roof('tent-fabric-roof', 'Coated fabric roof (double skin)', 0.16, 0.001, 1600, 1300, 1400, 0.35,
+    '#cdbb9c', 'A double-skin tent roof. The air layer between the skins is the only insulation it has.',
+    { vapourResistivity: 3000, embodiedCarbon: 50, airPermeability: 6 }),
+  roof('sandwich-roof', 'Insulated sandwich panel roof', 0.028, 0.06, 3300, 45, 1400, 0.45,
+    '#a2abb5', 'Rigid foam-core panel — the cabin and module roof, and the reason they outperform a tent.',
+    { vapourResistivity: 60, embodiedCarbon: 250, airPermeability: 2 }),
+  roof('steel-roof', 'Profiled steel roof (uninsulated)', 50, 0.0006, 1400, 7850, 480, 0.7,
+    '#5b6068', 'A bare metal roof. Fast, cheap, and it tracks the sky temperature almost exactly.',
+    { vapourResistivity: 1000000, embodiedCarbon: 120, airPermeability: 3 }),
 ];
 
 /* ------------------------------------------------------------------ */
@@ -274,13 +330,13 @@ export const ROOF_MATERIALS: MaterialProperties[] = [
 
 export const WINDOW_MATERIALS: MaterialProperties[] = [
   glazing('single', 'Single glazing 4 mm', 5.8, 0.85, 0.9, 1350,
-    'Cheapest; large heat flow and high solar gain.'),
+    'Cheapest; large heat flow and high solar gain.', { vapourResistivity: 1000000 }),
   glazing('double', 'Double glazing 4-12-4', 2.8, 0.76, 0.81, 3450,
-    'Halves the conduction loss versus single glazing.'),
+    'Halves the conduction loss versus single glazing.', { vapourResistivity: 1000000 }),
   glazing('double-lowe', 'Double low-E 4-12-4', 1.7, 0.42, 0.7, 4600,
-    'Low-emissivity coating cuts radiant transfer and solar gain.'),
+    'Low-emissivity coating cuts radiant transfer and solar gain.', { vapourResistivity: 1000000 }),
   glazing('triple', 'Triple low-E 4-12-4-12-4', 0.9, 0.34, 0.62, 7900,
-    'Best insulation available here; justified only in severe climates.'),
+    'Best insulation available here; justified only in severe climates.', { vapourResistivity: 1000000 }),
 ];
 
 /* ------------------------------------------------------------------ */
@@ -290,6 +346,7 @@ export const WINDOW_MATERIALS: MaterialProperties[] = [
 export const INSULATION_MATERIALS: MaterialProperties[] = [
   {
     id: 'none', name: 'No added insulation', category: 'insulation',
+    vapourResistivity: 1,
     thermalConductivity: 0, thickness: 0, uValue: 0, cost: 0,
     density: 0, specificHeat: 0, solarAbsorptance: 0, emissivity: 0.9,
     color: '#4a5568', roughness: 1, metalness: 0,
@@ -297,6 +354,7 @@ export const INSULATION_MATERIALS: MaterialProperties[] = [
   },
   {
     id: 'eps', name: 'EPS board', category: 'insulation',
+    vapourResistivity: 60,
     thermalConductivity: 0.035, thickness: 0.05, uValue: 0, cost: 480,
     density: 20, specificHeat: 1400, solarAbsorptance: 0.5, emissivity: 0.9,
     color: '#e9e6df', roughness: 0.95, metalness: 0, embodiedCarbon: 12,
@@ -304,6 +362,7 @@ export const INSULATION_MATERIALS: MaterialProperties[] = [
   },
   {
     id: 'xps', name: 'XPS board', category: 'insulation',
+    vapourResistivity: 150,
     thermalConductivity: 0.03, thickness: 0.05, uValue: 0, cost: 690,
     density: 35, specificHeat: 1450, solarAbsorptance: 0.5, emissivity: 0.9,
     color: '#9db8c9', roughness: 0.9, metalness: 0, embodiedCarbon: 22,
@@ -311,6 +370,7 @@ export const INSULATION_MATERIALS: MaterialProperties[] = [
   },
   {
     id: 'puf', name: 'PUF spray/board', category: 'insulation',
+    vapourResistivity: 60,
     thermalConductivity: 0.024, thickness: 0.05, uValue: 0, cost: 860,
     density: 38, specificHeat: 1400, solarAbsorptance: 0.5, emissivity: 0.9,
     color: '#d6c9a8', roughness: 0.9, metalness: 0, embodiedCarbon: 30,
@@ -318,6 +378,7 @@ export const INSULATION_MATERIALS: MaterialProperties[] = [
   },
   {
     id: 'mineral-wool', name: 'Mineral wool', category: 'insulation',
+    vapourResistivity: 1.2,
     thermalConductivity: 0.04, thickness: 0.05, uValue: 0, cost: 560,
     density: 60, specificHeat: 1030, solarAbsorptance: 0.5, emissivity: 0.9,
     color: '#d4b483', roughness: 1, metalness: 0, embodiedCarbon: 15,
@@ -325,10 +386,19 @@ export const INSULATION_MATERIALS: MaterialProperties[] = [
   },
   {
     id: 'coir', name: 'Coir board', category: 'insulation',
+    vapourResistivity: 5,
     thermalConductivity: 0.045, thickness: 0.05, uValue: 0, cost: 330,
     density: 100, specificHeat: 1500, solarAbsorptance: 0.5, emissivity: 0.9,
     color: '#8a6a44', roughness: 1, metalness: 0, embodiedCarbon: 4,
     note: 'Bio-based, very low embodied carbon; lower performance.',
+  },
+  {
+    id: 'aerogel', name: 'Aerogel blanket', category: 'insulation',
+    vapourResistivity: 3,
+    thermalConductivity: 0.015, thickness: 0.03, uValue: 0, cost: 3200,
+    density: 150, specificHeat: 1000, solarAbsorptance: 0.5, emissivity: 0.9,
+    color: '#e8eef2', roughness: 1, metalness: 0, embodiedCarbon: 45,
+    note: 'Best insulation per millimetre by a wide margin — the option that makes a thin shelter envelope work in a cold desert.',
   },
 ];
 

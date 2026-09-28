@@ -2,7 +2,7 @@
  * Application-state, pipeline and visualisation types.
  */
 
-import type { BuildingParameters } from './building';
+import type { BuildingParameters, LocalWallId } from './building';
 import type {
   ClimateAnalysis,
   ClimateData,
@@ -18,10 +18,36 @@ import type { ThermalComfort } from './thermal';
 /** Auto mode derives everything from climate; manual mode lets the user override. */
 export type DesignMode = 'auto' | 'manual';
 
-/** The nine 3D / 2D presentation modes. */
+/**
+ * The 3D / 2D presentation modes.
+ *
+ * `heatmap` and `temperature` are deliberately two separate modes. The heat map
+ * shows *absorbed solar radiation* — a direct product of the solar geometry,
+ * which this model computes exactly. The temperature map shows *estimated
+ * surface temperature*, which is a different quantity with a different
+ * derivation. Relabelling one as the other would be the single most misleading
+ * thing this interface could do, so they are never merged.
+ *
+ * `heatflux` and `humidity` continue that rule. Heat flux is the *conduction*
+ * through each surface, signed, so it says which way the heat is going and how
+ * fast — a quantity neither of the two maps above shows. Humidity is the margin
+ * between a surface and the indoor dew point, which is what decides whether the
+ * inner face is wet. Four maps, four quantities, four legends.
+ *
+ * `exploded` and `section` are geometry modes, not data modes: they change how
+ * the envelope is drawn so the build-up can be read, and they carry no colour
+ * scale at all.
+ */
 export type VisualizationMode =
   | 'normal'
   | 'heatmap'
+  | 'temperature'
+  | 'heatflux'
+  | 'heatloss'
+  | 'humidity'
+  | 'condensation'
+  | 'exploded'
+  | 'section'
   | 'airflow'
   | 'solar'
   | 'floorplan'
@@ -29,6 +55,25 @@ export type VisualizationMode =
   | 'side'
   | 'top'
   | 'walkthrough';
+
+/** The modes that colour the envelope from a data map. */
+export type ThermalMapMode =
+  | 'heatmap'
+  | 'temperature'
+  | 'heatflux'
+  | 'heatloss'
+  | 'humidity'
+  | 'condensation';
+
+/**
+ * A surface the 3D inspector can select.
+ *
+ * The four walls and the roof are the surfaces the model draws as separate
+ * panels. The floor is included because the thermal engines report it — it is
+ * ground-coupled and behaves in the opposite direction to everything else — but
+ * it is picked from the inspector list rather than clicked in the model.
+ */
+export type SurfaceSelection = LocalWallId | 'roof' | 'floor';
 
 /** Camera poses, including the four orthographic-style elevations. */
 export type CameraPreset = 'iso' | 'front' | 'side' | 'top' | 'walk';

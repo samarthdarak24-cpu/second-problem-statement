@@ -1,15 +1,22 @@
 'use client';
 
 /**
- * The topbar.
+ * The compact header.
  *
- * Carries the controls that define a run — *where* (site), *how hard to push*
- * (priority), and *who decides the envelope* (auto or manual) — plus the
- * Generate action and the headline result of the last run.
+ * Three rows, but the first is the only one anyone needs most of
+ * the time. The new header carries:
  *
- * It is sticky and present on every page on purpose. Changing the site on the
- * Thermal Analysis page should regenerate there, not send you back to a
- * "settings" page first: the site is a property of the analysis, not of a form.
+ *   LEFT   page title + description (the page's identity)
+ *   RIGHT  site selector + Auto/Manual + Generate design
+ *
+ * Everything else — backend, live-data toggle, API key, the priority
+ * slider, the scenarios row, the duration chip — has been moved to
+ * the page that owns it, or to Settings. The header used to be a
+ * control panel; it is now a navigation bar with one CTA.
+ *
+ * The pipeline is no longer in the header either. The Dashboard
+ * shows a compact progress strip instead, and a Generation overlay
+ * covers the page while a run is in flight.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -17,29 +24,23 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   AlertTriangle,
-  Building2,
-  KeyRound,
   MapPin,
   Play,
   RotateCcw,
   Search,
-  Server,
+  Shield,
   Sparkles,
   Thermometer,
-  Wifi,
 } from 'lucide-react';
 import { AVAILABLE_COUNTRIES, citiesInCountry, STATION_BY_ID } from '@/climate/stations';
 import { searchPlaces, placeToLocation, type GeoPlace } from '@/climate/providers/geocoding';
 import { useDesignStore } from '@/store/designStore';
-import { Chip, Segmented } from '@/components/ui/primitives';
+import { Chip } from '@/components/ui/primitives';
+import { LocationChip, StatusBadge } from '@/components/ui/soft';
 import { ZONE_LABEL } from '@/lib/labels';
-import { pct, temp } from '@/utils/format';
 import { cn } from '@/lib/utils';
 import { navItemFor } from './nav';
 import type { DesignMode } from '@/types';
-
-/** The scenario the demo walks through: composite → cold desert → hot-dry → hot-humid. */
-const DEMO_CITIES = ['in-pune', 'in-leh', 'in-jodhpur', 'in-chennai', 'in-shillong'];
 
 export function Topbar() {
   const pathname = usePathname();
@@ -49,36 +50,18 @@ export function Topbar() {
   const setLocation = useDesignStore((state) => state.setLocation);
   const mode = useDesignStore((state) => state.mode);
   const setMode = useDesignStore((state) => state.setMode);
-  const priority = useDesignStore((state) => state.priority);
-  const setPriority = useDesignStore((state) => state.setPriority);
   const generate = useDesignStore((state) => state.generate);
   const isGenerating = useDesignStore((state) => state.isGenerating);
   const statusMessage = useDesignStore((state) => state.statusMessage);
   const error = useDesignStore((state) => state.error);
   const dismissError = useDesignStore((state) => state.dismissError);
   const climateData = useDesignStore((state) => state.climateData);
-  const metrics = useDesignStore((state) => state.metrics);
-  const baselineMetrics = useDesignStore((state) => state.baselineMetrics);
-  const score = useDesignStore((state) => state.score);
-  const baselineScore = useDesignStore((state) => state.baselineScore);
-  const durationMs = useDesignStore((state) => state.durationMs);
-  const useBackend = useDesignStore((state) => state.useBackend);
-  const setUseBackend = useDesignStore((state) => state.setUseBackend);
-  const backendConfigured = useDesignStore((state) => state.backendConfigured);
-  const preferLive = useDesignStore((state) => state.preferLive);
-  const setPreferLive = useDesignStore((state) => state.setPreferLive);
   const openMeteoApiKey = useDesignStore((state) => state.openMeteoApiKey);
-  const setOpenMeteoApiKey = useDesignStore((state) => state.setOpenMeteoApiKey);
 
   const cities = useMemo(
     () => (location ? citiesInCountry(location.country) : []),
     [location],
   );
-
-  const energyChange =
-    metrics && baselineMetrics && baselineMetrics.annualEnergy > 0
-      ? ((metrics.annualEnergy - baselineMetrics.annualEnergy) / baselineMetrics.annualEnergy) * 100
-      : null;
 
   const onCityChange = (id: string): void => {
     const station = STATION_BY_ID.get(id);
@@ -86,11 +69,10 @@ export function Topbar() {
   };
 
   /* --- "Search any location" (free Open-Meteo geocoding) ---------------
-     Lets the user pick a place that is not in the bundled Indian station list.
-     The resolved coordinates flow through the existing climate service, which
-     handles arbitrary points via interpolation/synthesis (offline) or the live
-     archive (when live lookups are on). A keyed lookup avoids 429s on many
-     queries. */
+     Lets the user pick a place that is not in the bundled Indian station
+     list. The resolved coordinates flow through the existing climate
+     service, which handles arbitrary points via interpolation/synthesis
+     (offline) or the live archive (when live lookups are on). */
   const [query, setQuery] = useState('');
   const [places, setPlaces] = useState<GeoPlace[]>([]);
   const [searching, setSearching] = useState(false);
@@ -136,12 +118,39 @@ export function Topbar() {
     setShowResults(false);
   };
 
+  const statusTone: 'generating' | 'ready' | 'updated' | 'idle' | 'error' = isGenerating
+    ? 'generating'
+    : error
+      ? 'error'
+      : climateData
+        ? 'ready'
+        : 'idle';
+  const statusLabel = isGenerating
+    ? 'Generating'
+    : error
+      ? 'Error'
+      : climateData
+        ? 'Ready'
+        : 'Idle';
+
   return (
-    <header className="sticky top-0 z-30 border-b bg-panel">
-      {/* ---------------- Row 1 — page identity and the run controls ---------------- */}
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-3 px-6 py-3.5">
-        {/* Brand mark, mobile only — below `lg` the sidebar is hidden, so this
-            is the only place the product identifies itself. */}
+    <header
+      className="sticky top-0 z-30 border-b"
+      style={{
+        background: 'hsl(36 24% 98% / 0.82)',
+        backdropFilter: 'blur(14px) saturate(150%)',
+        WebkitBackdropFilter: 'blur(14px) saturate(150%)',
+        borderColor: 'hsl(30 14% 88% / 0.7)',
+        /* A single hairline of shadow under the header, so the content
+           scrolling beneath it is visibly *beneath* it. Without this the
+           translucent header and the page read as one flat field. */
+        boxShadow: '0 1px 0 0 hsl(30 14% 88% / 0.5), 0 4px 12px -8px hsl(24 20% 20% / 0.12)',
+      }}
+    >
+      {/* ---------------- Row 1 — page identity + status ---------------- */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-3 px-6 py-4">
+        {/* Brand mark, mobile only — below `lg` the sidebar is hidden, so
+            this is the only place the product identifies itself. */}
         <Link
           href="/"
           className="flex items-center gap-2 lg:hidden"
@@ -149,30 +158,68 @@ export function Topbar() {
         >
           <span
             aria-hidden
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] text-primary-foreground"
+            style={{
+              background:
+                'linear-gradient(140deg, hsl(22 78% 56%) 0%, hsl(18 68% 40%) 100%)',
+              boxShadow:
+                'inset 0 1px 0 0 hsl(30 90% 78% / 0.5), 0 3px 10px -3px hsl(18 68% 30% / 0.4)',
+            }}
           >
             <Thermometer size={16} />
           </span>
         </Link>
 
-        <div className="min-w-0">
-          <h1 className="font-display text-[19px] font-semibold leading-tight tracking-[-0.02em] text-foreground">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            {page ? (
+              <span
+                className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-muted-foreground"
+              >
+                {page.group}
+              </span>
+            ) : null}
+            <StatusBadge tone={statusTone} label={statusLabel} />
+            {climateData ? (
+              <Chip tone="accent" title={climateData.climateType}>
+                {ZONE_LABEL[climateData.climateZone]}
+              </Chip>
+            ) : null}
+          </div>
+          <h1 className="mt-1 font-display text-[22px] font-semibold leading-[1.15] tracking-[-0.025em] text-foreground sm:text-[24px]">
             {page?.label ?? 'Thermal Shelter'}
           </h1>
-          <p className="mt-0.5 max-w-[420px] truncate text-[12.5px] text-muted-foreground">
-            {page?.description ?? 'Climate-responsive shelter design'}
-          </p>
+          {page ? (
+            <p className="mt-0.5 max-w-[520px] truncate text-[12.5px] text-muted-foreground">
+              {page.description}
+            </p>
+          ) : null}
         </div>
+      </div>
 
-        {/* --- Site --- */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="flex items-center gap-1.5 text-muted-foreground">
-            <MapPin size={14} aria-hidden />
-            <span className="text-[10.5px] font-semibold uppercase tracking-[0.12em]">Site</span>
-          </span>
-
+      {/* ---------------- Row 2 — the only "controls" row ----------------
+           Site selector, search, mode, generate. That's it. */}
+      <div
+        className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t px-6 py-3"
+        style={{
+          borderColor: 'hsl(30 14% 88% / 0.6)',
+          background: 'hsl(36 22% 97% / 0.5)',
+        }}
+      >
+        {/* --- Site selector pill ---
+           Widths are fixed from `sm` up, but fluid below it. The old
+           `w-[160px]` / `w-[200px]` pair plus the 200px search input were
+           a fixed 560px inside a bar that has to fit a 390px phone, so
+           every route scrolled horizontally by exactly 168px. */}
+        <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
+          <MapPin size={14} aria-hidden className="shrink-0 text-muted-foreground" />
+          {location ? (
+            <LocationChip city={location.city} state={location.state} />
+          ) : (
+            <span className="text-[12px] text-muted-foreground">No site</span>
+          )}
           <select
-            className="select-field w-[136px]"
+            className="select-field h-9 min-w-0 flex-1 sm:w-[160px] sm:flex-none"
             value={location?.country ?? ''}
             onChange={(event) => {
               const first = citiesInCountry(event.target.value)[0];
@@ -186,9 +233,8 @@ export function Topbar() {
               </option>
             ))}
           </select>
-
           <select
-            className="select-field w-[200px]"
+            className="select-field h-9 min-w-0 flex-[1.4] sm:w-[200px] sm:flex-none"
             value={location?.id ?? ''}
             onChange={(event) => onCityChange(event.target.value)}
             aria-label="City"
@@ -201,18 +247,19 @@ export function Topbar() {
           </select>
         </div>
 
-        {/* --- Search any location (free Open-Meteo geocoding) --- */}
-        <div ref={searchBoxRef} className="relative flex items-center gap-1.5">
-          <span className="flex items-center gap-1.5 text-muted-foreground">
-            <Search size={14} aria-hidden />
-          </span>
+        {/* --- Search any location --- */}
+        <div
+          ref={searchBoxRef}
+          className="relative flex w-full min-w-0 items-center gap-1.5 sm:w-auto"
+        >
+          <Search size={13} aria-hidden className="shrink-0 text-muted-foreground" />
           <input
             type="text"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onFocus={() => places.length > 0 && setShowResults(true)}
             placeholder="Search any location…"
-            className="input-field h-9 w-[200px]"
+            className="field h-9 min-w-0 flex-1 sm:w-[200px] sm:flex-none"
             aria-label="Search any location by name"
           />
           {searching ? (
@@ -220,14 +267,18 @@ export function Topbar() {
           ) : null}
           {showResults && places.length > 0 ? (
             <ul
-              className="absolute left-0 top-[38px] z-50 max-h-64 w-[260px] overflow-auto rounded-lg border border-border bg-panel p-1 shadow-lg"
+              className="absolute left-0 right-0 top-[42px] z-50 max-h-64 overflow-auto rounded-[14px] border bg-panel p-1 sm:right-auto sm:w-[260px]"
+              style={{
+                borderColor: 'hsl(30 14% 88% / 0.8)',
+                boxShadow: 'var(--shadow-overlay)',
+              }}
               role="listbox"
             >
               {places.map((place) => (
                 <li key={place.id}>
                   <button
                     type="button"
-                    className="flex w-full flex-col items-start rounded-md px-2.5 py-1.5 text-left hover:bg-secondary/60"
+                    className="flex w-full flex-col items-start rounded-lg px-2.5 py-1.5 text-left transition-colors hover:bg-secondary/70"
                     onClick={() => selectPlace(place)}
                   >
                     <span className="text-[12.5px] font-medium text-foreground">{place.name}</span>
@@ -242,95 +293,81 @@ export function Topbar() {
         </div>
 
         {/* --- Mode --- */}
-        <Segmented<DesignMode>
-          value={mode}
-          onChange={setMode}
-          options={[
-            {
-              value: 'auto',
-              label: 'Auto',
-              title: 'The optimiser chooses orientation, envelope, shading and ventilation',
-              icon: <Sparkles size={13} aria-hidden />,
-            },
-            {
-              value: 'manual',
-              label: 'Manual',
-              title: 'You drive the envelope; the model evaluates every change',
-              icon: <RotateCcw size={13} aria-hidden />,
-            },
-          ]}
-        />
-
-        {/* --- Backend routing ---
-             Only rendered when a backend is actually configured. A control that
-             is always present but does nothing teaches the user that the
-             architecture is decoration, which is worse than omitting it. */}
-        {backendConfigured ? (
-          <button
-            type="button"
-            onClick={() => setUseBackend(!useBackend)}
-            title={
-              useBackend
-                ? 'Climate and screening go through the FastAPI service when it answers, and locally when it does not. Click to route everything locally.'
-                : 'Everything runs in the browser. Click to try the FastAPI service first.'
-            }
-            className={cn(
-              'flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-[12.5px] font-medium transition-colors',
-              useBackend
-                ? 'border-primary/45 bg-primary/15 text-primary'
-                : 'border-border bg-secondary/40 text-muted-foreground hover:text-foreground',
-            )}
-            aria-pressed={useBackend}
-          >
-            <Server size={13} aria-hidden />
-            Backend
-          </button>
-        ) : null}
-
-        {/* --- Live climate lookups ---
-             Off pins every run to the bundled climatology database: same answer
-             every time, no network wait. That is the setting to use when a
-             demonstration must not stall on a dead venue connection, or when a
-             result has to be reproducible. */}
-        <button
-          type="button"
-          onClick={() => setPreferLive(!preferLive)}
-          title={
-            preferLive
-              ? 'The next Generate will try the live Open-Meteo reanalysis first, then fall back to the bundled database. Click to pin it to the database.'
-              : 'Pinned to the bundled climatology database — results are reproducible and instant. Click to try live reanalysis first.'
-          }
-          className={cn(
-            'flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-[12.5px] font-medium transition-colors',
-            preferLive
-              ? 'border-border bg-secondary/40 text-muted-foreground hover:text-foreground'
-              : 'border-primary/45 bg-primary/15 text-primary',
-          )}
-          aria-pressed={!preferLive}
+        <div
+          className="inline-flex items-center gap-0.5 rounded-full border bg-panel p-0.5"
+          style={{
+            borderColor: 'hsl(30 14% 88% / 0.8)',
+            boxShadow: 'var(--inset-highlight)',
+          }}
+          role="tablist"
         >
-          <Wifi size={13} aria-hidden />
-          {preferLive ? 'Live data' : 'Offline'}
-        </button>
-
-        {/* --- Open-Meteo API key (optional) ---
-             A key only lifts the live-lookup rate limit so many sites resolve
-             without 429s; it is not required for global coverage. Seeded from
-             NEXT_PUBLIC_OPEN_METEO_API_KEY, and editable here at runtime. */}
-        <div className="flex items-center gap-1.5" title="Optional Open-Meteo API key — lifts the live-lookup rate limit for many sites">
-          <KeyRound size={13} className="text-muted-foreground" aria-hidden />
-          <input
-            type="password"
-            value={openMeteoApiKey}
-            onChange={(event) => setOpenMeteoApiKey(event.target.value)}
-            placeholder="Open-Meteo key (optional)"
-            className="input-field h-9 w-[150px]"
-            aria-label="Open-Meteo API key"
-          />
+          {(
+            [
+              {
+                value: 'auto' as DesignMode,
+                label: 'Auto',
+                icon: Sparkles,
+                title: 'The optimizer chooses the envelope',
+              },
+              {
+                value: 'manual' as DesignMode,
+                label: 'Manual',
+                icon: RotateCcw,
+                title: 'You drive the envelope',
+              },
+            ]
+          ).map((opt) => {
+            const Icon = opt.icon;
+            const active = mode === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                role="tab"
+                title={opt.title}
+                aria-selected={active}
+                onClick={() => setMode(opt.value)}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-medium transition-all duration-150',
+                  active
+                    ? 'text-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+                style={
+                  active
+                    ? {
+                        background:
+                          'linear-gradient(180deg, hsl(var(--pastel-peach)) 0%, hsl(var(--pastel-peach-deep)) 100%)',
+                        boxShadow:
+                          'inset 0 0 0 1px hsl(22 72% 86%), var(--shadow-hairline)',
+                      }
+                    : undefined
+                }
+              >
+                <Icon size={13} aria-hidden />
+                {opt.label}
+              </button>
+            );
+          })}
         </div>
 
-        {/* --- Generate --- */}
         <div className="ml-auto flex items-center gap-3">
-          <span className="hidden text-[12.5px] text-muted-foreground xl:inline">
+          <button
+            type="button"
+            onClick={() => {
+              const leh = STATION_BY_ID.get('in-leh');
+              if (leh) {
+                setLocation(leh.location);
+                void generate();
+              }
+            }}
+            className="flex items-center gap-1.5 rounded-full border border-red-500/35 bg-red-500/10 px-3 py-1.5 text-[12px] font-semibold text-red-600 transition hover:bg-red-500/20 dark:text-red-400"
+            title="Instantly load DRDO Leh, Ladakh (3,500m extreme cold high-altitude benchmark)"
+          >
+            <Shield size={13} />
+            <span className="hidden sm:inline">DRDO Leh Benchmark</span>
+          </button>
+          <span className="hidden text-[12px] text-muted-foreground xl:inline">
             {statusMessage}
           </span>
           <button
@@ -345,109 +382,18 @@ export function Topbar() {
         </div>
       </div>
 
-      {/* ---------------- Row 2 — priority, headline result, scenarios ---------------- */}
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t bg-card px-6 py-2.5">
-        <label className="flex min-w-[260px] max-w-[360px] flex-1 items-center gap-3">
-          <span className="whitespace-nowrap text-[10.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-            Optimise for
-          </span>
-          <span className="whitespace-nowrap text-[11.5px] text-muted-foreground/70">cost</span>
-          <input
-            type="range"
-            className="slider flex-1"
-            min={0}
-            max={1}
-            step={0.05}
-            value={priority}
-            onChange={(event) => setPriority(Number(event.target.value))}
-            aria-label="Optimisation priority"
-          />
-          <span className="whitespace-nowrap text-[11.5px] text-muted-foreground/70">comfort</span>
-          <span className="w-[42px] whitespace-nowrap text-[12px] font-semibold tabular-nums text-primary">
-            {pct(priority * 100)}
-          </span>
-        </label>
-
-        <div className="flex flex-wrap items-center gap-1.5">
-          {climateData ? (
-            <>
-              <Chip tone="accent" title={climateData.climateType}>
-                {ZONE_LABEL[climateData.climateZone]}
-              </Chip>
-              <Chip tone="neutral" title="Annual mean outdoor temperature">
-                {temp(climateData.summary.avgTemperature)}
-              </Chip>
-            </>
-          ) : null}
-
-          {metrics && baselineMetrics ? (
-            <>
-              <Chip
-                tone={score >= baselineScore ? 'good' : 'bad'}
-                title={`Design score ${score}/100 against a conventional build at ${baselineScore}/100`}
-              >
-                score {score} vs {baselineScore}
-              </Chip>
-              {energyChange !== null ? (
-                <Chip
-                  tone={energyChange <= 0 ? 'good' : 'bad'}
-                  title="Annual delivered energy against conventional local construction"
-                >
-                  energy {energyChange <= 0 ? '−' : '+'}
-                  {Math.abs(energyChange).toFixed(0)}%
-                </Chip>
-              ) : null}
-            </>
-          ) : null}
-
-          {durationMs > 0 ? (
-            <span className="text-[11.5px] tabular-nums text-muted-foreground/60">
-              {Math.round(durationMs)} ms
-            </span>
-          ) : null}
-        </div>
-
-        <div className="ml-auto flex flex-wrap items-center gap-1.5">
-          <span className="flex items-center gap-1.5 text-muted-foreground/70">
-            <Building2 size={12} aria-hidden />
-            <span className="text-[10.5px] font-semibold uppercase tracking-[0.12em]">
-              Scenarios
-            </span>
-          </span>
-          {DEMO_CITIES.map((id) => {
-            const station = STATION_BY_ID.get(id);
-            if (!station) return null;
-            const selected = location?.id === id;
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setLocation(station.location)}
-                title={`${station.location.city} — ${station.climateType}`}
-                className={cn('tab', selected ? 'tab-active' : 'tab-idle')}
-              >
-                {station.location.city}
-                <span className="text-[10.5px] tabular-nums text-muted-foreground/70">
-                  {temp(station.monthly[4]?.avgTemp ?? 0, 0)}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
       {/* ---------------- Error ---------------- */}
       {error ? (
         <div
           role="alert"
           className="flex items-start gap-3 border-t px-6 py-3"
           style={{
-            background: 'hsl(var(--destructive) / 0.12)',
-            borderColor: 'hsl(var(--destructive) / 0.4)',
+            background: 'hsl(var(--destructive) / 0.08)',
+            borderColor: 'hsl(var(--destructive) / 0.3)',
           }}
         >
           <AlertTriangle
-            size={15}
+            size={14}
             className="mt-[2px] shrink-0"
             style={{ color: 'hsl(var(--destructive))' }}
             aria-hidden

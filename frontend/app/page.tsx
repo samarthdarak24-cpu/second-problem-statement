@@ -292,7 +292,7 @@ export default function LandingPage() {
                 {
                   icon: Box,
                   title: 'Parametric 3D model',
-                  body: 'Geometry is generated from parameters by the same builder the thermal model consumes — so the picture can never disagree with the numbers. Nine presentation modes, from heat map to walkthrough.',
+                  body: 'Geometry is generated from parameters by the same builder the thermal model consumes — so the picture can never disagree with the numbers. Sixteen presentation modes, from the solar heat map to the section cut.',
                 },
                 {
                   icon: Activity,

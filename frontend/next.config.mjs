@@ -15,7 +15,7 @@ const nextConfig = {
    * The trade is that `next start` no longer works — the build emits a
    * directory of files (`out/`) instead of a server. This app does not notice.
    */
-  output: 'export',
+  output: process.env.STATIC_EXPORT === 'true' ? 'export' : undefined,
 
   images: {
     /*

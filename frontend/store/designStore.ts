@@ -42,6 +42,7 @@ import type {
   PipelineStage,
   PipelineStageId,
   Recommendation,
+  SurfaceSelection,
   ThermalComfort,
   VisualizationMode,
 } from '@/types';
@@ -203,6 +204,15 @@ export interface DesignStore extends DesignState {
    * chips, mode-specific readouts) all stay visible.
    */
   viewportExpanded: boolean;
+  /**
+   * The surface the 3D inspector is showing, or null.
+   *
+   * Held in the store rather than in the viewport's local state so the panel
+   * survives a mode change: clicking a wall in Normal view and then switching
+   * to the temperature map keeps the same surface selected, which is exactly
+   * the comparison the inspector exists for.
+   */
+  selectedSurface: SurfaceSelection | null;
 
   /* --- Actions ------------------------------------------------------ */
   setLocation(location: Location): void;
@@ -210,6 +220,7 @@ export interface DesignStore extends DesignState {
   setPriority(priority: number): void;
   setVisualizationMode(mode: VisualizationMode): void;
   setCameraPreset(preset: CameraPreset): void;
+  setSelectedSurface(surface: SurfaceSelection | null): void;
   setHour(hour: number): void;
   setMonth(month: number): void;
   setDay(day: number): void;
@@ -519,6 +530,7 @@ export const useDesignStore = create<DesignStore>((set, get) => {
 
     visualizationMode: 'normal',
     cameraPreset: 'iso',
+    selectedSurface: null,
     showShading: true,
     showFurniture: true,
     showLabels: true,
@@ -632,6 +644,10 @@ export const useDesignStore = create<DesignStore>((set, get) => {
 
     setCameraPreset(preset) {
       set({ cameraPreset: preset });
+    },
+
+    setSelectedSurface(surface) {
+      set({ selectedSurface: surface });
     },
 
     setHour(hour) {

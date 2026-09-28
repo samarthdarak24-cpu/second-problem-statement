@@ -41,6 +41,30 @@ export interface MaterialLayer {
   /** Specific heat capacity, J/kg·K. */
   specificHeat: number;
   /**
+   * Water-vapour diffusion resistance factor, μ — dimensionless, air = 1.
+   *
+   * WHY THIS IS REQUIRED RATHER THAN OPTIONAL
+   * The interstitial condensation check (the Glaser method) works by comparing
+   * a vapour-pressure profile against a saturation-pressure profile through the
+   * stack, and the whole answer is decided by the *ratio* of vapour resistance
+   * between layers — not by any absolute value. A layer that silently defaulted
+   * to a plausible-looking μ would therefore not be a small error: put a
+   * vapour-tight layer in the wrong place and the model either invents a
+   * condensation plane that does not exist or hides one that does.
+   *
+   * Making it required means TypeScript enumerates every layer in the catalogue
+   * and forces an explicit decision at each one, which is the same reason the
+   * validation table is data rather than prose: an omission should be a
+   * compile error, not a quiet default.
+   *
+   * Order-of-magnitude reference values:
+   *   still air 1 · mineral wool ≈ 1.2 · earth/soil ≈ 8 · plaster, brick ≈ 10 ·
+   *   timber ≈ 50 · EPS ≈ 60 · PUF ≈ 60 · plywood ≈ 100 · concrete ≈ 100 ·
+   *   XPS ≈ 150 · coated fabric ≈ 3 000 · damp-proof membrane ≈ 50 000 ·
+   *   aluminium foil and sheet steel ≈ 10⁶ (effectively a vapour barrier)
+   */
+  vapourResistivity: number;
+  /**
    * Latent heat of fusion, J/kg. Present only on a phase-change layer.
    *
    * When set, the layer stores additional heat while its temperature crosses
@@ -105,6 +129,16 @@ export interface MaterialProperties {
   specificHeat: number;
   /** Solar absorptance of the outer surface, 0–1. */
   solarAbsorptance: number;
+  /**
+   * Water-vapour diffusion resistance factor, μ — dimensionless, air = 1.
+   *
+   * Optional on the catalogue entry because a material may be used either
+   * directly or as part of a composite stack; the *layer* carries the required
+   * value (see `MaterialLayer.vapourResistivity`). Every catalogue entry does
+   * declare one, and a test asserts it, so the interstitial condensation check
+   * never has to fall back to a guessed value.
+   */
+  vapourResistivity?: number;
   /** Long-wave emissivity of the outer surface, 0–1. */
   emissivity: number;
   /** Solar heat gain coefficient — windows only. */
@@ -140,20 +174,112 @@ export interface MaterialProperties {
 /* ------------------------------------------------------------------ */
 
 /**
- * The five shelter forms the app can design.
+ * The shelter forms the app can design.
  *
  * Kept as a closed union rather than a free string so that every switch over it
- * is exhaustive: adding a sixth type should produce a type error at each place
- * that needs to know about it, rather than silently falling through to a
- * default. The templates that give each id its parameters and massing live in
+ * is exhaustive: adding a type should produce a type error at each place that
+ * needs to know about it, rather than silently falling through to a default.
+ * The templates that give each id its parameters and massing live in
  * `lib/buildingTypes.ts`.
+ *
+ * The library is split in two families:
+ *
+ *   CIVIL   — the five original climate-responsive building forms. Kept because
+ *             they are the reference cases the defence shelters are measured
+ *             against, and because a civilian shelter is still a real use case.
+ *   DEFENCE — the deployable shelter library the DRDO problem statement is
+ *             actually about: tents, cabins, equipment shelters and bunkers.
+ *
+ * Every defence type is still a bundle of ordinary `BuildingParameters` plus a
+ * massing descriptor — it is not a special case inside the physics engine. That
+ * is what keeps the type selector from being decorative.
  */
 export type BuildingTypeId =
+  /* --- Civil (reference) --- */
   | 'single-family'
   | 'row-house'
   | 'low-rise'
   | 'vernacular'
-  | 'modular-emergency';
+  | 'modular-emergency'
+  /* --- Defence shelter library --- */
+  | 'high-altitude-tent'
+  | 'desert-field-tent'
+  | 'warm-humid-shelter'
+  | 'modular-insulated-cabin'
+  | 'comm-command-shelter'
+  | 'equipment-shelter'
+  | 'medical-field-shelter'
+  | 'modular-prefab-shelter'
+  | 'semi-underground-bunker';
+
+/** Which family a shelter type belongs to. Drives the selector grouping. */
+export type ShelterCategory = 'civil' | 'defence';
+
+/* ------------------------------------------------------------------ */
+/* Mission profile — what the shelter is deployed to do                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The mission the shelter is deployed for.
+ *
+ * WHY THIS IS A FIRST-CLASS INPUT
+ * A thermal requirement is not a property of a building, it is a property of a
+ * *task*. A communication shelter is mostly equipment heat and wants to be cool
+ * and dry; a personnel shelter is mostly occupant heat and wants a comfortable
+ * band; a storage shelter wants almost nothing but to stay above freezing and
+ * below the point where stores degrade. Feeding one occupancy-and-setpoint pair
+ * to all three would make the tool answer the wrong question, so the mission
+ * profile sets occupancy, activity, equipment load, operating hours and the
+ * temperature/humidity targets, and the physics runs from there.
+ */
+export type MissionProfileId =
+  | 'personnel-accommodation'
+  | 'command-control'
+  | 'communication'
+  | 'medical'
+  | 'equipment'
+  | 'storage'
+  | 'observation-post'
+  | 'field-operations';
+
+/* ------------------------------------------------------------------ */
+/* Deployment / services vocabularies                                  */
+/* ------------------------------------------------------------------ */
+
+/** How leaky the deployed envelope is. Drives the infiltration term. */
+export type InfiltrationClass = 'low' | 'medium' | 'high' | 'measured';
+
+/** The active plant fitted to the shelter. */
+export type HvacType =
+  | 'none'
+  | 'electric-heater'
+  | 'diesel-heater'
+  | 'heat-pump'
+  | 'air-conditioner'
+  | 'fan'
+  | 'evaporative-cooler'
+  | 'radiant-heater'
+  | 'solar-thermal';
+
+/** Where the shelter's energy comes from — a logistics fact, not just a kWh. */
+export type PowerSource =
+  | 'grid'
+  | 'diesel-generator'
+  | 'battery'
+  | 'solar-pv'
+  | 'solar-thermal'
+  | 'hybrid';
+
+/** Whether the shelter is being transported or standing. */
+export type DeploymentState = 'packed' | 'deployed';
+
+/** One item of equipment, as a count against the internal-load library. */
+export interface EquipmentLoadItem {
+  /** Id into `lib/internalLoads.ts`. */
+  id: string;
+  /** How many of this item. */
+  count: number;
+}
 
 /* ------------------------------------------------------------------ */
 /* Building parameters — the single source of truth for the 3D model    */
@@ -256,6 +382,55 @@ export interface BuildingParameters {
   heatingEfficiency: number;
   /** Installed PV capacity, kWp. 0 disables. */
   solarPvKwp: number;
+
+  /* --- Mission & deployment (defence evolution) ----------------------
+   *
+   * All optional, so every design saved before these axes existed keeps
+   * loading unchanged and `resolveMaterials` / the thermal model fall back to
+   * their current behaviour when a field is absent.
+   */
+
+  /**
+   * The mission the shelter is deployed for.
+   *
+   * Sets occupancy, activity, equipment load and the temperature / humidity
+   * targets. The physics then runs from those, so the same envelope can be
+   * judged against a personnel brief and an equipment brief without changing a
+   * single thermal constant.
+   */
+  missionProfile?: MissionProfileId;
+
+  /**
+   * The equipment actually carried, as counts against the internal-load
+   * library. Seeded from the mission profile and then editable, because a real
+   * deployment list is a fact about the unit rather than about the mission.
+   */
+  internalLoads?: EquipmentLoadItem[];
+
+  /**
+   * How leaky the deployed envelope is.
+   *
+   * Separate from `ventilationType` on purpose: intentional ventilation is a
+   * control decision, leakage is a property of the seams, the door and the
+   * fabric. Folding them into one ACH hides the single most improvable number
+   * on a tent.
+   */
+  infiltrationClass?: InfiltrationClass;
+
+  /** Measured air leakage, ACH at the design pressure. Used when class is `measured`. */
+  infiltrationAch?: number;
+
+  /** The active plant fitted. `none` means the shelter is judged free-running. */
+  hvacType?: HvacType;
+
+  /** Installed heating/cooling capacity, kW. 0 = unsized. */
+  hvacCapacityKw?: number;
+
+  /** Where the energy comes from — drives the fuel/logistics figures. */
+  powerSource?: PowerSource;
+
+  /** Transport or standing. Drives the packed-volume and mass figures. */
+  deploymentState?: DeploymentState;
 }
 
 /** Relative glazing weighting per facade — lets the optimiser steer windows away from west. */

@@ -40,6 +40,7 @@ import type {
   BuildingTypeId,
   RoofStrategy,
   ShadingStrategy,
+  ShelterCategory,
   VentilationStrategy,
 } from '@/types';
 import { ROOF_PITCH, VENTILATION_ACH } from '@/thermal/constants';
@@ -113,6 +114,14 @@ export interface BuildingPalette {
 /** One selectable building type. */
 export interface BuildingTypeTemplate {
   id: BuildingTypeId;
+  /**
+   * Which family the type belongs to.
+   *
+   * The selector groups on this, and it is what lets the civil reference cases
+   * and the deployable defence shelters coexist in one registry without either
+   * pretending to be the other.
+   */
+  category: ShelterCategory;
   /** Short name for the selector. */
   label: string;
   /** Single glyph — used instead of an icon font so the selector stays light. */
@@ -169,6 +178,14 @@ export interface BuildingTypeTemplate {
  * familiar building to the most specialised, which is also roughly the order a
  * jury will ask about them.
  */
+/**
+ * The civil reference forms, in selector order.
+ *
+ * Kept as its own list because the Climate Response Lab's building-type sweep
+ * runs one full optimisation per entry: five is the number that keeps the sweep
+ * interactive, and these five are the reference cases the defence shelters are
+ * measured against.
+ */
 export const BUILDING_TYPE_ORDER: BuildingTypeId[] = [
   'single-family',
   'row-house',
@@ -177,9 +194,35 @@ export const BUILDING_TYPE_ORDER: BuildingTypeId[] = [
   'modular-emergency',
 ];
 
+/**
+ * The deployable defence shelter library, in selector order.
+ *
+ * Runs from the lightest, most deployable form (a carried tent) to the heaviest
+ * and most protected (an earth-bermed position), which is also the order a
+ * reviewer will ask about them.
+ */
+export const DEFENCE_TYPE_ORDER: BuildingTypeId[] = [
+  'high-altitude-tent',
+  'desert-field-tent',
+  'warm-humid-shelter',
+  'modular-prefab-shelter',
+  'modular-insulated-cabin',
+  'comm-command-shelter',
+  'equipment-shelter',
+  'medical-field-shelter',
+  'semi-underground-bunker',
+];
+
+/** Everything the selector offers: the civil references, then the defence library. */
+export const ALL_TYPE_ORDER: BuildingTypeId[] = [
+  ...BUILDING_TYPE_ORDER,
+  ...DEFENCE_TYPE_ORDER,
+];
+
 const TEMPLATES: Record<BuildingTypeId, BuildingTypeTemplate> = {
   'single-family': {
     id: 'single-family',
+    category: 'civil',
     label: 'Single-family home',
     glyph: '🏠',
     accentHue: 18, // terracotta — the app's primary, and the reference case
@@ -236,6 +279,7 @@ const TEMPLATES: Record<BuildingTypeId, BuildingTypeTemplate> = {
 
   'row-house': {
     id: 'row-house',
+    category: 'civil',
     label: 'Compact / row house',
     glyph: '🏘️',
     accentHue: 32, // ochre
@@ -294,6 +338,7 @@ const TEMPLATES: Record<BuildingTypeId, BuildingTypeTemplate> = {
 
   'low-rise': {
     id: 'low-rise',
+    category: 'civil',
     label: 'Low-rise building',
     glyph: '🏢',
     accentHue: 42, // amber
@@ -352,6 +397,7 @@ const TEMPLATES: Record<BuildingTypeId, BuildingTypeTemplate> = {
 
   vernacular: {
     id: 'vernacular',
+    category: 'civil',
     label: 'Rural / vernacular shelter',
     glyph: '🛖',
     accentHue: 92, // olive — the colour of rammed earth and shade
@@ -413,6 +459,7 @@ const TEMPLATES: Record<BuildingTypeId, BuildingTypeTemplate> = {
 
   'modular-emergency': {
     id: 'modular-emergency',
+    category: 'civil',
     label: 'Modular emergency shelter',
     glyph: '🏗️',
     accentHue: 8, // rust red — the honest weak case, and it reads as a warning
@@ -463,6 +510,556 @@ const TEMPLATES: Record<BuildingTypeId, BuildingTypeTemplate> = {
       airChangesPerHour: 5,
     },
   },
+
+  /* ==================================================================
+     DEFENCE SHELTER LIBRARY
+     ==================================================================
+     Nine deployable shelters, from a carried tent to an earth-bermed
+     position. Each is a real form the thermal model simulates, not a
+     display variant: a tent's comfort comes from its stack and its air
+     changes, a bunker's from its soil cover, and the model will show the
+     difference rather than assert it.
+
+     Every default here is a *starting point*, not a lock. The optimiser
+     moves inside the palette; the palette is what keeps a prefabricated
+     shelter from being "optimised" into rammed earth.
+     ================================================================== */
+
+  'high-altitude-tent': {
+    id: 'high-altitude-tent',
+    category: 'defence',
+    label: 'High-altitude personnel shelter',
+    glyph: '⛺',
+    accentHue: 24,
+    useCase: 'High altitude / cold desert',
+    summary:
+      'A double-skin insulated tent for high-altitude deployment — light enough to be carried, insulated enough to hold heat overnight.',
+    climateRationale:
+      'At altitude the night is the problem: the shelter must hold heat through a −15 °C night on almost no mass. A double skin with a still-air gap, a radiant barrier and a foam core does the work a thick wall would do at sea level, and it does it at a fraction of the weight.',
+    massing: {
+      floors: { min: 1, max: 1, default: 1 },
+      partyWalls: 'none',
+      verandahDepth: 0,
+      modules: 1,
+      parapet: false,
+    },
+    daylightTarget: 0.12,
+    palette: {
+      wallMaterials: ['pvc-fabric', 'pu-fabric'],
+      roofMaterials: ['tent-fabric-roof'],
+      windowMaterials: ['single', 'double'],
+      roofForms: ['shed', 'gable'],
+      shading: ['none', 'overhang'],
+      ventilation: ['sealed-mechanical', 'single-sided', 'stack-ventilation', 'mixed-mode'],
+    },
+    defaults: {
+      width: 5,
+      length: 7,
+      height: 2.4,
+      wallThickness: 0.05,
+      numOccupants: 6,
+      numRooms: 1,
+      budget: 450_000,
+      windowToWallRatio: 0.08,
+      wallMaterialId: 'pvc-fabric',
+      roofMaterialId: 'tent-fabric-roof',
+      windowMaterialId: 'double',
+      wallAssemblyId: 'tent-wall-insulated',
+      roofAssemblyId: 'tent-roof-insulated',
+      insulationLevel: 'very-high',
+      insulationThickness: 0.06,
+      roofType: 'shed',
+      roofAngle: 20,
+      roofOverhang: 0.3,
+      shadingType: 'overhang',
+      shadingDepth: 0.3,
+      ventilationType: 'sealed-mechanical',
+      airChangesPerHour: 1.5,
+      missionProfile: 'personnel-accommodation',
+      infiltrationClass: 'medium',
+      hvacType: 'diesel-heater',
+      powerSource: 'diesel-generator',
+      deploymentState: 'deployed',
+    },
+  },
+
+  'desert-field-tent': {
+    id: 'desert-field-tent',
+    category: 'defence',
+    label: 'Desert field tent',
+    glyph: '🏜️',
+    accentHue: 48,
+    useCase: 'Hot desert / arid',
+    summary:
+      'A lightweight, high-albedo tent for desert deployment, with a double roof and generous open ventilation.',
+    climateRationale:
+      'In a desert the shelter must reject the sun, not store heat. A pale outer skin, a double roof that shades itself and generous cross-ventilation beat insulation, which in this climate would only hold the heat in. That is the opposite of the high-altitude answer, on the same platform.',
+    massing: {
+      floors: { min: 1, max: 1, default: 1 },
+      partyWalls: 'none',
+      verandahDepth: 0,
+      modules: 1,
+      parapet: false,
+    },
+    daylightTarget: 0.14,
+    palette: {
+      wallMaterials: ['pu-fabric', 'pvc-fabric'],
+      roofMaterials: ['tent-fabric-roof', 'reflective-roof'],
+      windowMaterials: ['single'],
+      roofForms: ['shed', 'gable'],
+      shading: ['none', 'overhang', 'combined'],
+      ventilation: ['cross-ventilation', 'single-sided', 'night-purge', 'mixed-mode'],
+    },
+    defaults: {
+      width: 6,
+      length: 8,
+      height: 2.5,
+      wallThickness: 0.03,
+      numOccupants: 8,
+      numRooms: 1,
+      budget: 350_000,
+      windowToWallRatio: 0.1,
+      wallMaterialId: 'pu-fabric',
+      roofMaterialId: 'tent-fabric-roof',
+      windowMaterialId: 'single',
+      wallAssemblyId: 'tent-wall-basic',
+      insulationLevel: 'none',
+      insulationThickness: 0,
+      roofType: 'shed',
+      roofAngle: 15,
+      roofOverhang: 0.4,
+      shadingType: 'overhang',
+      shadingDepth: 0.4,
+      ventilationType: 'cross-ventilation',
+      airChangesPerHour: 8,
+      missionProfile: 'personnel-accommodation',
+      infiltrationClass: 'high',
+      hvacType: 'fan',
+      powerSource: 'solar-pv',
+      deploymentState: 'deployed',
+    },
+  },
+
+  'warm-humid-shelter': {
+    id: 'warm-humid-shelter',
+    category: 'defence',
+    label: 'Warm-humid personnel shelter',
+    glyph: '🌴',
+    accentHue: 84,
+    useCase: 'Coastal / monsoon',
+    summary:
+      'A raised, open shelter for warm-humid deployment — maximised ventilation under a shaded, insulated roof.',
+    climateRationale:
+      'Where the air is warm and wet, comfort comes from air movement and shade, not from insulation. The envelope is kept light and open, and the roof is the only insulated element because the sun is directly overhead. Moisture, not temperature, is the binding constraint.',
+    massing: {
+      floors: { min: 1, max: 1, default: 1 },
+      partyWalls: 'none',
+      verandahDepth: 0,
+      modules: 1,
+      parapet: false,
+    },
+    daylightTarget: 0.2,
+    palette: {
+      wallMaterials: ['pu-fabric', 'pvc-fabric', 'sandwich-panel'],
+      roofMaterials: ['reflective-roof', 'tent-fabric-roof', 'sandwich-roof'],
+      windowMaterials: ['single', 'double'],
+      roofForms: ['gable', 'shed'],
+      shading: ['none', 'overhang', 'combined'],
+      ventilation: [
+        'cross-ventilation',
+        'single-sided',
+        'stack-ventilation',
+        'night-purge',
+        'mixed-mode',
+      ],
+    },
+    defaults: {
+      width: 6,
+      length: 8,
+      height: 2.7,
+      wallThickness: 0.06,
+      numOccupants: 8,
+      numRooms: 1,
+      budget: 520_000,
+      windowToWallRatio: 0.18,
+      wallMaterialId: 'pu-fabric',
+      roofMaterialId: 'reflective-roof',
+      windowMaterialId: 'single',
+      insulationLevel: 'low',
+      insulationThickness: 0.03,
+      roofType: 'gable',
+      roofAngle: 25,
+      roofOverhang: 0.8,
+      shadingType: 'combined',
+      shadingDepth: 0.6,
+      ventilationType: 'cross-ventilation',
+      airChangesPerHour: 10,
+      missionProfile: 'personnel-accommodation',
+      infiltrationClass: 'high',
+      hvacType: 'fan',
+      powerSource: 'solar-pv',
+      deploymentState: 'deployed',
+    },
+  },
+
+  'modular-prefab-shelter': {
+    id: 'modular-prefab-shelter',
+    category: 'defence',
+    label: 'Emergency modular shelter',
+    glyph: '🏗️',
+    accentHue: 72,
+    useCase: 'Rapid deployment',
+    summary:
+      'Three bolted prefabricated bays — flat-packed, crane-set and habitable in hours.',
+    climateRationale:
+      'The honest weak case, kept because it is worth showing: a lightweight panel shelter has almost no mass and swings with the outside air, so its comfort comes from ventilation and shading rather than from storage. If it cannot be made comfortable somewhere, that is a finding about the place.',
+    massing: {
+      floors: { min: 1, max: 1, default: 1 },
+      partyWalls: 'none',
+      verandahDepth: 0,
+      modules: 3,
+      parapet: false,
+    },
+    daylightTarget: 0.18,
+    palette: {
+      wallMaterials: ['sandwich-panel', 'insulated-panel', 'aac'],
+      roofMaterials: ['sandwich-roof', 'insulated-roof', 'metal-sheet'],
+      windowMaterials: ['single', 'double'],
+      roofForms: ['shed', 'flat'],
+      shading: ['none', 'overhang', 'combined'],
+      ventilation: ['single-sided', 'cross-ventilation', 'night-purge', 'mixed-mode'],
+    },
+    defaults: {
+      width: 3.3,
+      length: 9.6,
+      height: 2.6,
+      wallThickness: 0.06,
+      numOccupants: 4,
+      numRooms: 1,
+      budget: 700_000,
+      windowToWallRatio: 0.16,
+      wallMaterialId: 'sandwich-panel',
+      roofMaterialId: 'sandwich-roof',
+      windowMaterialId: 'single',
+      insulationLevel: 'medium',
+      insulationThickness: 0.04,
+      roofType: 'shed',
+      roofAngle: 10,
+      roofOverhang: 0.4,
+      shadingType: 'overhang',
+      shadingDepth: 0.4,
+      ventilationType: 'cross-ventilation',
+      airChangesPerHour: 6,
+      missionProfile: 'personnel-accommodation',
+      infiltrationClass: 'medium',
+      hvacType: 'none',
+      powerSource: 'solar-pv',
+      deploymentState: 'deployed',
+    },
+  },
+
+  'modular-insulated-cabin': {
+    id: 'modular-insulated-cabin',
+    category: 'defence',
+    label: 'Modular insulated cabin',
+    glyph: '🏠',
+    accentHue: 60,
+    useCase: 'Semi-permanent accommodation',
+    summary:
+      'A rigid insulated panel cabin — the semi-permanent step up from a tent, deployable by lorry and crane.',
+    climateRationale:
+      'A rigid foam-core panel gives a U-value a tent cannot reach while staying liftable. It is the right answer wherever the shelter will stand for months rather than days, and its plywood lining resists condensation far better than a bare metal skin.',
+    massing: {
+      floors: { min: 1, max: 1, default: 1 },
+      partyWalls: 'none',
+      verandahDepth: 0,
+      modules: 2,
+      parapet: false,
+    },
+    daylightTarget: 0.16,
+    palette: {
+      wallMaterials: ['sandwich-panel', 'insulated-panel', 'steel-sheet'],
+      roofMaterials: ['sandwich-roof', 'insulated-roof'],
+      windowMaterials: ['double', 'double-lowe', 'single'],
+      roofForms: ['flat', 'shed'],
+      shading: ['none', 'overhang', 'external-blind'],
+      ventilation: ['sealed-mechanical', 'single-sided', 'cross-ventilation', 'mixed-mode'],
+    },
+    defaults: {
+      width: 3.3,
+      length: 9.6,
+      height: 2.6,
+      wallThickness: 0.075,
+      numOccupants: 4,
+      numRooms: 1,
+      budget: 950_000,
+      windowToWallRatio: 0.12,
+      wallMaterialId: 'sandwich-panel',
+      roofMaterialId: 'sandwich-roof',
+      windowMaterialId: 'double',
+      wallAssemblyId: 'cabin-wall-panel',
+      roofAssemblyId: 'cabin-roof-panel',
+      insulationLevel: 'high',
+      insulationThickness: 0.05,
+      roofType: 'flat',
+      roofAngle: 0,
+      roofOverhang: 0.3,
+      shadingType: 'overhang',
+      shadingDepth: 0.4,
+      ventilationType: 'mixed-mode',
+      airChangesPerHour: 4,
+      missionProfile: 'personnel-accommodation',
+      infiltrationClass: 'low',
+      hvacType: 'heat-pump',
+      powerSource: 'hybrid',
+      deploymentState: 'deployed',
+    },
+  },
+
+  'comm-command-shelter': {
+    id: 'comm-command-shelter',
+    category: 'defence',
+    label: 'Communication / command shelter',
+    glyph: '📡',
+    accentHue: 14,
+    useCase: 'Signals / command post',
+    summary:
+      'A sealed, insulated equipment shelter with a heavy internal electrical load and a tight temperature band.',
+    climateRationale:
+      'The load here is equipment, not people, and it runs all night. The envelope must be sealed and insulated against the outside in every climate, because the problem is getting heat out in summer and keeping the racks warm in winter — and the humidity band is tight enough that condensation, not temperature, often decides the design.',
+    massing: {
+      floors: { min: 1, max: 1, default: 1 },
+      partyWalls: 'none',
+      verandahDepth: 0,
+      modules: 2,
+      parapet: false,
+    },
+    daylightTarget: 0.1,
+    palette: {
+      wallMaterials: ['sandwich-panel', 'insulated-panel', 'insulated-aac'],
+      roofMaterials: ['sandwich-roof', 'insulated-roof', 'reflective-roof'],
+      windowMaterials: ['double', 'double-lowe'],
+      roofForms: ['flat', 'shed'],
+      shading: ['none', 'overhang', 'external-blind', 'combined'],
+      ventilation: ['sealed-mechanical', 'mixed-mode'],
+    },
+    defaults: {
+      width: 3.3,
+      length: 6.6,
+      height: 2.6,
+      wallThickness: 0.075,
+      numOccupants: 2,
+      numRooms: 1,
+      budget: 1_400_000,
+      windowToWallRatio: 0.06,
+      wallMaterialId: 'sandwich-panel',
+      roofMaterialId: 'sandwich-roof',
+      windowMaterialId: 'double',
+      wallAssemblyId: 'cabin-wall-panel',
+      roofAssemblyId: 'cabin-roof-panel',
+      insulationLevel: 'very-high',
+      insulationThickness: 0.08,
+      roofType: 'flat',
+      roofAngle: 0,
+      roofOverhang: 0.4,
+      shadingType: 'combined',
+      shadingDepth: 0.5,
+      ventilationType: 'sealed-mechanical',
+      airChangesPerHour: 1,
+      missionProfile: 'communication',
+      internalLoads: [
+        { id: 'comms-terminal', count: 1 },
+        { id: 'radio-hf', count: 2 },
+        { id: 'battery-charger', count: 1 },
+        { id: 'computer', count: 1 },
+        { id: 'lighting', count: 1 },
+      ],
+      infiltrationClass: 'low',
+      hvacType: 'air-conditioner',
+      powerSource: 'hybrid',
+      deploymentState: 'deployed',
+    },
+  },
+
+  'equipment-shelter': {
+    id: 'equipment-shelter',
+    category: 'defence',
+    label: 'Equipment shelter',
+    glyph: '🔧',
+    accentHue: 36,
+    useCase: 'Plant / stores / power',
+    summary:
+      'A hard-shell equipment bay — the simplest possible envelope, sized around keeping its contents inside their operating range.',
+    climateRationale:
+      'No occupants and a wide band, so the envelope is a weather shield with just enough insulation to stop the interior cooking or freezing. The design driver is the internal electrical load, which is why it is modelled with the equipment library rather than an occupancy figure.',
+    massing: {
+      floors: { min: 1, max: 1, default: 1 },
+      partyWalls: 'none',
+      verandahDepth: 0,
+      modules: 2,
+      parapet: false,
+    },
+    daylightTarget: 0.06,
+    palette: {
+      wallMaterials: ['steel-sheet', 'sandwich-panel', 'insulated-panel'],
+      roofMaterials: ['steel-roof', 'sandwich-roof', 'reflective-roof'],
+      windowMaterials: ['single'],
+      roofForms: ['flat', 'shed'],
+      shading: ['none', 'overhang'],
+      ventilation: ['sealed-mechanical', 'single-sided', 'cross-ventilation'],
+    },
+    defaults: {
+      width: 3,
+      length: 6,
+      height: 2.5,
+      wallThickness: 0.06,
+      numOccupants: 1,
+      numRooms: 1,
+      budget: 800_000,
+      windowToWallRatio: 0.04,
+      wallMaterialId: 'steel-sheet',
+      roofMaterialId: 'steel-roof',
+      windowMaterialId: 'single',
+      insulationLevel: 'medium',
+      insulationThickness: 0.05,
+      roofType: 'flat',
+      roofAngle: 0,
+      roofOverhang: 0.3,
+      shadingType: 'overhang',
+      shadingDepth: 0.4,
+      ventilationType: 'cross-ventilation',
+      airChangesPerHour: 6,
+      missionProfile: 'equipment',
+      internalLoads: [
+        { id: 'battery-charger', count: 1 },
+        { id: 'server-rack', count: 1 },
+        { id: 'lighting', count: 1 },
+      ],
+      infiltrationClass: 'medium',
+      hvacType: 'fan',
+      powerSource: 'diesel-generator',
+      deploymentState: 'deployed',
+    },
+  },
+
+  'medical-field-shelter': {
+    id: 'medical-field-shelter',
+    category: 'defence',
+    label: 'Medical field shelter',
+    glyph: '🏥',
+    accentHue: 96,
+    useCase: 'Field medical post',
+    summary:
+      'A clean, tightly controlled medical shelter with a humidity floor and a narrow temperature band.',
+    climateRationale:
+      'The requirement is clinical rather than comfortable: a tight band and a humidity *floor*, because a dressing station wants moisture in the air, not out of it. That inverts the control logic relative to every other shelter in the same climate, which is exactly why the mission is a first-class input.',
+    massing: {
+      floors: { min: 1, max: 1, default: 1 },
+      partyWalls: 'none',
+      verandahDepth: 0,
+      modules: 2,
+      parapet: false,
+    },
+    daylightTarget: 0.2,
+    palette: {
+      wallMaterials: ['insulated-panel', 'sandwich-panel', 'insulated-aac'],
+      roofMaterials: ['sandwich-roof', 'insulated-roof'],
+      windowMaterials: ['double', 'double-lowe'],
+      roofForms: ['flat', 'shed'],
+      shading: ['none', 'overhang', 'external-blind', 'combined'],
+      ventilation: ['sealed-mechanical', 'mixed-mode', 'cross-ventilation'],
+    },
+    defaults: {
+      width: 4.2,
+      length: 8.4,
+      height: 2.7,
+      wallThickness: 0.075,
+      numOccupants: 4,
+      numRooms: 2,
+      budget: 2_200_000,
+      windowToWallRatio: 0.14,
+      wallMaterialId: 'insulated-panel',
+      roofMaterialId: 'sandwich-roof',
+      windowMaterialId: 'double-lowe',
+      insulationLevel: 'high',
+      insulationThickness: 0.06,
+      roofType: 'flat',
+      roofAngle: 0,
+      roofOverhang: 0.5,
+      shadingType: 'combined',
+      shadingDepth: 0.5,
+      ventilationType: 'sealed-mechanical',
+      airChangesPerHour: 2,
+      missionProfile: 'medical',
+      internalLoads: [
+        { id: 'medical-monitor', count: 2 },
+        { id: 'lighting', count: 2 },
+        { id: 'computer', count: 1 },
+      ],
+      infiltrationClass: 'low',
+      hvacType: 'heat-pump',
+      powerSource: 'hybrid',
+      deploymentState: 'deployed',
+    },
+  },
+
+  'semi-underground-bunker': {
+    id: 'semi-underground-bunker',
+    category: 'defence',
+    label: 'Semi-underground / bunker shelter',
+    glyph: '🪨',
+    accentHue: 4,
+    useCase: 'Protected / earth-sheltered',
+    summary:
+      'An earth-bermed, part-buried position — heavy, protected and almost thermally inert.',
+    climateRationale:
+      'Soil cover removes the diurnal swing almost entirely, and the ground holds the site’s annual mean all year, so a bunker barely responds to the weather at all. The trade-off is a structural cost and a drainage problem no other shelter on this list has.',
+    massing: {
+      floors: { min: 1, max: 1, default: 1 },
+      partyWalls: 'none',
+      verandahDepth: 0,
+      modules: 1,
+      parapet: false,
+    },
+    daylightTarget: 0.08,
+    palette: {
+      wallMaterials: ['soil-berm', 'rcc', 'stone'],
+      roofMaterials: ['rcc-slab', 'insulated-roof'],
+      windowMaterials: ['single', 'double'],
+      roofForms: ['flat', 'vaulted'],
+      shading: ['none', 'overhang'],
+      ventilation: ['sealed-mechanical', 'stack-ventilation', 'mixed-mode'],
+    },
+    defaults: {
+      width: 4,
+      length: 8,
+      height: 2.6,
+      wallThickness: 0.3,
+      numOccupants: 6,
+      numRooms: 2,
+      budget: 3_000_000,
+      windowToWallRatio: 0.05,
+      wallMaterialId: 'soil-berm',
+      roofMaterialId: 'rcc-slab',
+      windowMaterialId: 'single',
+      wallAssemblyId: 'bunker-wall-earth',
+      roofAssemblyId: 'bunker-roof-earth',
+      insulationLevel: 'high',
+      insulationThickness: 0.06,
+      roofType: 'flat',
+      roofAngle: 0,
+      roofOverhang: 0.4,
+      shadingType: 'none',
+      shadingDepth: 0,
+      ventilationType: 'stack-ventilation',
+      airChangesPerHour: 3,
+      missionProfile: 'personnel-accommodation',
+      infiltrationClass: 'low',
+      hvacType: 'none',
+      powerSource: 'grid',
+      deploymentState: 'deployed',
+    },
+  },
 };
 
 /* ------------------------------------------------------------------ */
@@ -473,8 +1070,8 @@ export function buildingType(id: BuildingTypeId): BuildingTypeTemplate {
   return TEMPLATES[id];
 }
 
-/** The catalogue, in selector order. */
-export const BUILDING_TYPES: BuildingTypeTemplate[] = BUILDING_TYPE_ORDER.map(
+/** The catalogue, in selector order — civil references first, then defence. */
+export const BUILDING_TYPES: BuildingTypeTemplate[] = ALL_TYPE_ORDER.map(
   (id) => TEMPLATES[id],
 );
 
@@ -486,6 +1083,21 @@ export function isBuildingTypeId(value: unknown): value is BuildingTypeId {
 /** The selector's option list, in the shape `SelectRow` expects. */
 export const BUILDING_TYPE_OPTIONS: { value: string; label: string }[] =
   BUILDING_TYPES.map((t) => ({ value: t.id, label: `${t.glyph}  ${t.label}` }));
+
+/** The civil reference forms only, for a selector that wants to separate them. */
+export const CIVIL_TYPE_OPTIONS: { value: string; label: string }[] = BUILDING_TYPE_ORDER.map(
+  (id) => ({ value: id, label: `${TEMPLATES[id].glyph}  ${TEMPLATES[id].label}` }),
+);
+
+/** The deployable defence shelter library only. */
+export const DEFENCE_TYPE_OPTIONS: { value: string; label: string }[] = DEFENCE_TYPE_ORDER.map(
+  (id) => ({ value: id, label: `${TEMPLATES[id].glyph}  ${TEMPLATES[id].label}` }),
+);
+
+/** True when the type is part of the deployable defence shelter library. */
+export function isDefenceType(id: BuildingTypeId): boolean {
+  return TEMPLATES[id].category === 'defence';
+}
 
 /* ------------------------------------------------------------------ */
 /* Application                                                         */

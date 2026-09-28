@@ -13,15 +13,30 @@
 
 import type {
   BuildingParameters,
+  ClimateData,
   CostEstimate,
   DesignComparison,
   DesignMode,
+  ResolvedMaterials,
+  ShelterGeometry,
   ThermalComfort,
 } from '@/types';
 import type { DesignMetrics } from '@/thermal/metrics';
 import { buildingType } from '@/lib/buildingTypes';
 import { assemblyById } from '@/thermal/assemblies';
 import { DEFAULT_GLAZING_BIAS, glazingBiasOption } from '@/lib/glazingBias';
+import { computeClimateFingerprint } from '@/climate/fingerprint';
+import { deriveRequirements } from '@/climate/requirementEngine';
+import { isMissionProfileId, missionProfile } from '@/lib/missions';
+import { computeInternalLoads } from '@/lib/internalLoads';
+import { computeMoisture } from '@/thermal/moisture';
+import { computeInterstitial } from '@/thermal/interstitial';
+import { SURFACE_FILM } from '@/thermal/materials';
+import { computeHeatLossBreakdown } from '@/thermal/heatLoss';
+import { assessStress } from '@/thermal/stress';
+import { computeDeploymentMetrics } from '@/lib/deployment';
+import { HVAC_LABEL, INFILTRATION_LABEL, POWER_SOURCE_LABEL } from '@/thermal/ventilation';
+import { CHALLENGE_LABEL, ZONE_LABEL } from '@/lib/labels';
 import { currency, num, pct, temp, energyPerYear } from '@/utils/format';
 
 export interface DesignReportData {
@@ -40,6 +55,22 @@ export interface DesignReportData {
    * rather than only the annual aggregates.
    */
   thermal: ThermalComfort | null;
+  /**
+   * Optional context that unlocks the defence sections.
+   *
+   * Optional rather than required so a caller that only has the thermal result
+   * still produces a valid report; when the climate, geometry and materials are
+   * supplied, the fingerprint, mission, requirements, moisture, stress and
+   * deployment sections are added.
+   */
+  climate?: ClimateData | null;
+  geometry?: ShelterGeometry | null;
+  materials?: ResolvedMaterials | null;
+  /** Month and hour the moisture / surface assessment is made at. */
+  analysisMonth?: number;
+  analysisHour?: number;
+  /** The climate provider that answered, for the provenance line. */
+  climateSource?: string;
 }
 
 const escapeHtml = (value: string): string =>
@@ -57,6 +88,7 @@ export function designReportHtml(data: DesignReportData): string {
     data;
   const template = buildingType(parameters.buildingType);
   const p = parameters;
+  const defence = buildDefenceSections(data);
 
   const comfort = metrics
     ? [
@@ -234,6 +266,8 @@ export function designReportHtml(data: DesignReportData): string {
 
   ${deltas ? `<h2>Against conventional construction</h2><table>${deltas}</table>` : ''}
 
+  ${defence}
+
   <div class="disclaimer">
     <strong>Model estimate — not a measured building result.</strong> Every figure here is produced by a
     parametric thermal and cost model. It is a design aid for comparing options, not a substitute for
@@ -255,4 +289,293 @@ export function printDesignReport(data: DesignReportData): void {
   win.focus();
   /* Give the new document a beat to lay out before printing. */
   setTimeout(() => win.print(), 350);
+}
+
+/* ------------------------------------------------------------------ */
+/* Defence sections                                                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The sections the defence evolution adds: fingerprint, mission, requirements,
+ * internal load, moisture, stress, heat loss and deployability.
+ *
+ * Every figure comes from the same engines the UI uses, so the printed report
+ * and the on-screen brief cannot disagree. When the caller does not supply the
+ * climate, geometry and materials, the function returns an empty string rather
+ * than printing a section full of blanks.
+ */
+function buildDefenceSections(data: DesignReportData): string {
+  const { climate, geometry, materials, parameters, thermal, metrics } = data;
+  if (!climate || !geometry || !materials || !thermal || !metrics) return '';
+
+  const template = buildingType(parameters.buildingType);
+  const mission = isMissionProfileId(parameters.missionProfile)
+    ? missionProfile(parameters.missionProfile)
+    : null;
+  const fingerprint = computeClimateFingerprint(climate);
+
+  const month = data.analysisMonth ?? thermal.dailyProfile.month;
+  const hour = data.analysisHour ?? 14;
+
+  const internalLoads = computeInternalLoads(
+    parameters.numOccupants,
+    mission?.activityMet ?? 1.2,
+    parameters.internalLoads ?? [],
+    geometry.floorArea,
+  );
+
+  const requirements = deriveRequirements({
+    fingerprint,
+    analysis: {
+      zone: fingerprint.zone,
+      classification: fingerprint.climateType,
+      mainChallenge: fingerprint.primary,
+      challengeDetail: '',
+      ventilationStrategy: parameters.ventilationType,
+      ventilationAch: parameters.airChangesPerHour,
+      insulationLevel: parameters.insulationLevel,
+      insulationThickness: parameters.insulationThickness,
+      shadingStrategy: parameters.shadingType,
+      windowRatioRecommendation: parameters.windowToWallRatio,
+      orientationRecommendation: parameters.orientation,
+      roofStrategy: parameters.roofType,
+      glazingStrategy: 'double',
+      shadingDepth: parameters.shadingDepth,
+      wallThickness: parameters.wallThickness,
+      rationale: [],
+    },
+    climate,
+    template,
+    base: parameters,
+    missionId: parameters.missionProfile,
+  });
+
+  const indoorTemp =
+    thermal.dailyProfile.points[Math.round(hour) % 24]?.indoorTemp ?? thermal.indoorTemperature;
+
+  const moisture = computeMoisture(climate, geometry, materials, parameters, {
+    month,
+    hour,
+    indoorTemp,
+    latentGainW: internalLoads.totalLatentW,
+  });
+
+  const heatLoss = computeHeatLossBreakdown(thermal.dailyProfile, parameters, geometry);
+  const stress = assessStress(thermal, mission?.activityMet ?? 1.2, 1.5);
+  const deployment = computeDeploymentMetrics(geometry, materials, parameters, metrics.annualEnergy);
+
+  /* ---------------- Climate fingerprint ---------------- */
+  const fingerprintTable = [
+    row('Zone', `${ZONE_LABEL[fingerprint.zone]} · ${fingerprint.climateType}`),
+    row('Elevation', `${Math.round(fingerprint.elevation)} m`),
+    row('Primary challenge', CHALLENGE_LABEL[fingerprint.primary]),
+    row('Secondary challenge', CHALLENGE_LABEL[fingerprint.secondary]),
+    ...fingerprint.indices.map((index) =>
+      row(index.label, `${pct(index.value * 100, 0)} (${num(index.raw, 1)} ${index.unit})`),
+    ),
+  ].join('');
+
+  /* ---------------- Mission & internal load ---------------- */
+  const missionTable = [
+    row('Mission profile', mission ? mission.label : 'Not set'),
+    row('Activity', mission ? `${mission.activity} · ${mission.activityMet.toFixed(1)} met` : '—'),
+    row('Occupants', String(parameters.numOccupants)),
+    row('Operating hours', mission ? `${mission.operatingHours} h/day${mission.continuous ? ' continuous' : ''}` : '—'),
+    row('Target temperature', mission ? `${mission.targetTemp.min}–${mission.targetTemp.max} °C` : '—'),
+    row('Target humidity', mission ? `${mission.targetHumidity.min}–${mission.targetHumidity.max} %` : '—'),
+    row('Occupant load', `${num(internalLoads.occupants.totalW, 0)} W`),
+    row('Equipment load', `${num(internalLoads.equipmentSensibleW + internalLoads.equipmentLatentW, 0)} W`),
+    row('Total internal load', `${num(internalLoads.totalW, 0)} W (${internalLoads.totalKw.toFixed(2)} kW)`),
+  ].join('');
+
+  /* ---------------- Requirements ---------------- */
+  const requirementRows = requirements.items
+    .map((item) => row(item.title, item.value))
+    .join('');
+  const requirementReasons = requirements.items
+    .map((item) => `<p class="note"><strong>${escapeHtml(item.title)}:</strong> ${escapeHtml(item.reason)}</p>`)
+    .join('');
+
+  /* ---------------- Moisture ---------------- */
+  const moistureTable = [
+    row('Indoor temperature', `${num(moisture.indoorTemp, 1)} °C`),
+    row('Indoor RH', pct(moisture.indoorRh, 0)),
+    row('Dew point', `${num(moisture.dewPoint, 1)} °C`),
+    row('Wet bulb', `${num(moisture.wetBulb, 1)} °C`),
+    row('Humidity ratio', `${(moisture.indoorHumidityRatio * 1000).toFixed(2)} g/kg`),
+    row('Outdoor', `${num(moisture.outdoorTemp, 1)} °C · ${pct(moisture.outdoorRh, 0)} RH`),
+    row('Air exchange', `${moisture.airChangesPerHour.toFixed(1)} ACH`),
+    row('Moisture generation', `${num(moisture.generationKgPerHour, 3)} kg/h`),
+    row('Condensing', `${num(moisture.condensationKgPerHour, 3)} kg/h`),
+    row('Condensation risk', moisture.risk.toUpperCase()),
+  ].join('');
+
+  const surfaceRows = moisture.surfaces
+    .map((surface) =>
+      row(
+        surface.label,
+        `${num(surface.surfaceTemp, 1)} °C · margin ${surface.margin >= 0 ? '+' : ''}${num(surface.margin, 1)} K · ${surface.risk}`,
+      ),
+    )
+    .join('');
+
+  /* ---------------- Interstitial condensation ----------------
+     The surface check above says whether the inner face is wet. This one says
+     whether the build-up is wet *inside*, which is the failure a cold-climate
+     shelter actually suffers and which no surface reading can show. */
+  const interstitialConditions = {
+    month,
+    indoorTemp: moisture.indoorTemp,
+    indoorRh: moisture.indoorRh,
+    outdoorTemp: moisture.outdoorTemp,
+    outdoorRh: moisture.outdoorRh,
+  };
+
+  const interstitialWall = computeInterstitial(materials.wall.layers, {
+    ...interstitialConditions,
+    internalSurfaceResistance: SURFACE_FILM.wall.internal,
+    externalSurfaceResistance: SURFACE_FILM.wall.external,
+  });
+  const interstitialRoof = computeInterstitial(materials.roof.layers, {
+    ...interstitialConditions,
+    internalSurfaceResistance: SURFACE_FILM.roof.internal,
+    externalSurfaceResistance: SURFACE_FILM.roof.external,
+  });
+
+  const interstitialLine = (label: string, result: ReturnType<typeof computeInterstitial>) =>
+    result.applicable
+      ? row(
+          label,
+          result.condensing
+            ? `Condensing at ${result.condensationAt} (${num(result.condensationDepth ?? 0, 3)} m) · ${num(result.condensationGPerM2Day, 2)} g/m²·day · ${result.risk}`
+            : `Dry · tightest plane ${result.critical?.label ?? '—'} at ${result.critical?.marginPa ?? 0} Pa margin`,
+        )
+      : row(label, 'Not run — single-material envelope, no layer stack to walk');
+
+  const interstitialTable = [
+    interstitialLine('Wall build-up', interstitialWall),
+    interstitialLine('Roof build-up', interstitialRoof),
+  ].join('');
+
+  const interstitialWarning =
+    interstitialWall.barrierOnColdSide || interstitialRoof.barrierOnColdSide
+      ? `<p class="note"><strong>Vapour barrier position.</strong> ${
+          [
+            interstitialWall.barrierOnColdSide
+              ? `The wall's vapour-tight layer (${interstitialWall.vapourBarrierLayer}) sits on the cold side of the build-up`
+              : null,
+            interstitialRoof.barrierOnColdSide
+              ? `the roof's (${interstitialRoof.vapourBarrierLayer}) does too`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(', and ')
+            .replace(/^t/, 'T')
+      }, so condensate it traps cannot dry inward. Move the barrier inboard of the insulation, or add a ventilated cavity outboard of it.</p>`
+      : '';
+
+  /* ---------------- Stress ---------------- */
+  const stressTable = [
+    row('Heat stress — WBGT', `${num(stress.heat.wbgt, 1)} °C (${stress.heat.risk})`),
+    row('Wet bulb / globe', `${num(stress.heat.wetBulb, 1)} / ${num(stress.heat.globeTemp, 1)} °C`),
+    row('Cold stress — required clo', `${num(stress.cold.requiredClo, 2)} clo (${stress.cold.risk})`),
+    row('Issued / deficit', `${num(stress.cold.availableClo, 2)} / ${num(stress.cold.deficitClo, 2)} clo`),
+    row('Heating load', `${num(stress.cold.heatingLoadKw, 2)} kW`),
+    row('Binding constraint', stress.binding === 'comfort' ? 'Ordinary comfort' : `${stress.binding} stress`),
+  ].join('');
+
+  /* ---------------- Heat loss ---------------- */
+  const heatLossTable = heatLoss.components
+    .map((component) => row(component.label, `${component.lossKwh.toFixed(1)} kWh · ${component.sharePct.toFixed(0)} %`))
+    .join('');
+
+  const airSplitTable = [
+    row('Intentional ventilation', `${heatLoss.intentionalVentilation.ach.toFixed(1)} ACH · ${heatLoss.intentionalVentilation.sharePct.toFixed(0)} %`),
+    row('Uncontrolled infiltration', `${heatLoss.infiltration.ach.toFixed(1)} ACH · ${heatLoss.infiltration.sharePct.toFixed(0)} %`),
+    row('Leakage class', INFILTRATION_LABEL[parameters.infiltrationClass ?? 'medium']),
+  ].join('');
+
+  /* ---------------- Deployment ---------------- */
+  const deploymentTable = [
+    row('Envelope mass', `${num(deployment.envelopeMassKg / 1000, 2)} t`),
+    row('Total mass', `${num(deployment.totalMassKg / 1000, 2)} t`),
+    row('Deployed volume', `${num(deployment.deployedVolumeM3, 1)} m³`),
+    row('Packed volume', `${num(deployment.packedVolumeM3, 2)} m³ (${(deployment.packingFactor * 100).toFixed(0)} %)`),
+    row('Transport volume', `${num(deployment.transportVolumeM3, 2)} m³`),
+    row('Panel count', String(deployment.panelCount)),
+    row('Deployment time', deployment.deployable ? `${deployment.deploymentTimeMin} min` : 'Site-built'),
+    row('Manpower', deployment.deployable ? `${deployment.manpowerRequired} personnel` : '—'),
+    row('Daily electrical', `${num(deployment.dailyElectricalKwh, 1)} kWh/day`),
+    row('Daily fuel', deployment.dailyFuelLitres > 0 ? `${num(deployment.dailyFuelLitres, 1)} L/day` : 'None'),
+  ].join('');
+
+  /* ---------------- Services ---------------- */
+  const servicesTable = [
+    row('Shelter type', `${template.glyph} ${template.label}`),
+    row('Category', template.category === 'defence' ? 'Defence shelter' : 'Civil reference'),
+    row('Ventilation strategy', `${parameters.ventilationType} · ${parameters.airChangesPerHour} ACH capacity`),
+    row('HVAC', `${HVAC_LABEL[parameters.hvacType ?? 'none']}${parameters.hvacCapacityKw ? ` · ${parameters.hvacCapacityKw} kW` : ''}`),
+    row('Power source', POWER_SOURCE_LABEL[parameters.powerSource ?? 'grid']),
+    row('Climate source', data.climateSource ?? climate.source),
+  ].join('');
+
+  return `
+  <h2>Climate fingerprint</h2>
+  <div class="grid">
+    <div><table>${fingerprintTable}</table></div>
+    <div>
+      <h2>Mission and internal load</h2>
+      <table>${missionTable}</table>
+    </div>
+  </div>
+
+  <h2>Area-specific thermal requirements</h2>
+  <table>${requirementRows}</table>
+  ${requirementReasons}
+
+  <div class="grid">
+    <div>
+      <h2>Moisture</h2>
+      <table>${moistureTable}</table>
+    </div>
+    <div>
+      <h2>Heat and cold stress</h2>
+      <table>${stressTable}</table>
+    </div>
+  </div>
+
+  <h2>Surface condensation risk</h2>
+  <table>${surfaceRows}</table>
+
+  <h2>Interstitial condensation (Glaser check)</h2>
+  <table>${interstitialTable}</table>
+  ${interstitialWarning}
+
+  <div class="grid">
+    <div>
+      <h2>Heat loss by component</h2>
+      <table>${heatLossTable}</table>
+    </div>
+    <div>
+      <h2>Air exchange</h2>
+      <table>${airSplitTable}</table>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <h2>Deployability</h2>
+      <table>${deploymentTable}</table>
+    </div>
+    <div>
+      <h2>Services</h2>
+      <table>${servicesTable}</table>
+    </div>
+  </div>
+
+  <p class="note"><strong>Model fidelity.</strong> Fast reduced-order engineering model: a
+  quasi-steady-state monthly heat balance, a single-zone steady-state moisture balance, WBGT via
+  Stull's wet-bulb approximation, and a linear approximation of the ISO 11079 cold-stress table.
+  No CFD, no measured validation, no EnergyPlus run. Every figure is an engineering estimate for
+  comparing designs.</p>`;
 }

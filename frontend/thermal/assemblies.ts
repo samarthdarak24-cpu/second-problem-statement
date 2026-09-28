@@ -44,15 +44,26 @@ import type { CompositeAssembly, MaterialLayer } from '@/types';
 /* Layer shorthand                                                     */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Layer shorthand.
+ *
+ * `vapourResistivity` is a required positional argument rather than part of the
+ * optional `extra` bag, so that adding a layer without deciding its vapour
+ * behaviour is a compile error rather than a silent default. The interstitial
+ * condensation check is decided by the *ratio* of vapour resistance across the
+ * stack, so a guessed value is not a small inaccuracy — it can invent or hide a
+ * condensation plane.
+ */
 function layer(
   name: string,
   thickness: number,
   conductivity: number,
   density: number,
   specificHeat: number,
+  vapourResistivity: number,
   extra: Partial<MaterialLayer> = {},
 ): MaterialLayer {
-  return { name, thickness, conductivity, density, specificHeat, ...extra };
+  return { name, thickness, conductivity, density, specificHeat, vapourResistivity, ...extra };
 }
 
 /* ------------------------------------------------------------------ */
@@ -73,12 +84,12 @@ export const COMPOSITE_ASSEMBLIES: CompositeAssembly[] = [
     roughness: 0.85,
     metalness: 0,
     layers: [
-      layer('Brick outer leaf', 0.105, 0.7, 1800, 880),
+      layer('Brick outer leaf', 0.105, 0.7, 1800, 880, 10),
       /* A drained cavity is a resistance, not a material: the effective
          conductivity folds in still-air conduction plus radiation across it. */
-      layer('Drained cavity', 0.05, 0.28, 1.2, 1005),
-      layer('EPS insulation', 0.05, 0.035, 25, 1400),
-      layer('Internal plaster', 0.012, 0.5, 1300, 1000),
+      layer('Drained cavity', 0.05, 0.28, 1.2, 1005, 1),
+      layer('EPS insulation', 0.05, 0.035, 25, 1400, 60),
+      layer('Internal plaster', 0.012, 0.5, 1300, 1000, 10),
     ],
   },
   {
@@ -93,9 +104,9 @@ export const COMPOSITE_ASSEMBLIES: CompositeAssembly[] = [
     roughness: 0.95,
     metalness: 0,
     layers: [
-      layer('Rendered mineral wool', 0.08, 0.04, 60, 840),
-      layer('Rammed earth', 0.3, 0.8, 1900, 900),
-      layer('Earth plaster', 0.015, 0.6, 1500, 1000),
+      layer('Rendered mineral wool', 0.08, 0.04, 60, 840, 1.2),
+      layer('Rammed earth', 0.3, 0.8, 1900, 900, 8),
+      layer('Earth plaster', 0.015, 0.6, 1500, 1000, 10),
     ],
   },
   {
@@ -110,9 +121,9 @@ export const COMPOSITE_ASSEMBLIES: CompositeAssembly[] = [
     roughness: 0.8,
     metalness: 0,
     layers: [
-      layer('AAC block', 0.2, 0.16, 600, 1000),
-      layer('PUF board', 0.04, 0.025, 35, 1400),
-      layer('Internal plaster', 0.012, 0.5, 1300, 1000),
+      layer('AAC block', 0.2, 0.16, 600, 1000, 10),
+      layer('PUF board', 0.04, 0.025, 35, 1400, 60),
+      layer('Internal plaster', 0.012, 0.5, 1300, 1000, 10),
     ],
   },
   {
@@ -127,14 +138,14 @@ export const COMPOSITE_ASSEMBLIES: CompositeAssembly[] = [
     roughness: 0.8,
     metalness: 0,
     layers: [
-      layer('Mineral wool', 0.06, 0.04, 60, 840),
-      layer('Brick', 0.15, 0.7, 1800, 880),
-      layer('PCM board', 0.025, 0.22, 900, 2000, {
+      layer('Mineral wool', 0.06, 0.04, 60, 840, 1.2),
+      layer('Brick', 0.15, 0.7, 1800, 880, 10),
+      layer('PCM board', 0.025, 0.22, 900, 2000, 30, {
         latentHeat: 180_000,
         meltingPoint: 24,
         phaseBand: 3,
       }),
-      layer('Internal plaster', 0.012, 0.5, 1300, 1000),
+      layer('Internal plaster', 0.012, 0.5, 1300, 1000, 10),
     ],
   },
 
@@ -151,10 +162,10 @@ export const COMPOSITE_ASSEMBLIES: CompositeAssembly[] = [
     roughness: 0.9,
     metalness: 0,
     layers: [
-      layer('Screed and membrane', 0.04, 0.5, 1300, 1000),
-      layer('XPS insulation', 0.075, 0.03, 35, 1400),
-      layer('RCC slab', 0.12, 1.7, 2400, 880),
-      layer('Ceiling plaster', 0.012, 0.5, 1300, 1000),
+      layer('Screed and membrane', 0.04, 0.5, 1300, 1000, 50),
+      layer('XPS insulation', 0.075, 0.03, 35, 1400, 150),
+      layer('RCC slab', 0.12, 1.7, 2400, 880, 100),
+      layer('Ceiling plaster', 0.012, 0.5, 1300, 1000, 10),
     ],
   },
   {
@@ -169,8 +180,154 @@ export const COMPOSITE_ASSEMBLIES: CompositeAssembly[] = [
     roughness: 1,
     metalness: 0,
     layers: [
-      layer('Mud phuska', 0.15, 0.6, 1600, 880),
-      layer('Timber joists and earth', 0.1, 0.14, 650, 1600),
+      layer('Mud phuska', 0.15, 0.6, 1600, 880, 10),
+      layer('Timber joists and earth', 0.1, 0.14, 650, 1600, 15),
+    ],
+  },
+
+  /* ==================================================================
+     DEFENCE SHELTER BUILD-UPS
+     ==================================================================
+     These are the assemblies a deployed shelter is actually made of, and
+     they exist because a defence envelope is a *stack of thin layers*, not
+     a single thick material. A tent wall is fabric, an air gap, a radiant
+     barrier and a liner; a cabin wall is a skin, a foam core and a lining.
+     The U-value, the areal mass and the daily storage of each are all
+     derived by walking the stack exactly as they are for the masonry
+     build-ups above — no special case, no second code path.
+
+     The mass figure is the one to read carefully. A tent wall is under
+     5 kg/m²; a brick wall is over 400. That two-order-of-magnitude gap is
+     why a tent tracks the weather and a bunker does not, and it is a
+     *result of the physics*, not a label.
+     ================================================================== */
+
+  /* ---------------------------- Walls ---------------------------- */
+  {
+    id: 'tent-wall-insulated',
+    name: 'Tent wall — fabric / air gap / foil / PUF / liner',
+    category: 'wall',
+    note: 'The insulated tent build-up: an outer fabric skin, a still-air layer, an aluminium radiant barrier, a foam core and an inner liner. Almost no mass — the comfort comes from the stack, not from storage.',
+    cost: 2600,
+    solarAbsorptance: 0.35,
+    emissivity: 0.9,
+    color: '#c9b79a',
+    roughness: 0.85,
+    metalness: 0,
+    layers: [
+      layer('PVC-coated polyester fabric', 0.0008, 0.16, 1300, 1400, 3000),
+      /* A still-air layer is a resistance, not a material: the effective
+         conductivity folds in conduction plus radiation across the gap. */
+      layer('Still-air gap', 0.05, 0.28, 1.2, 1005, 1),
+      layer('Aluminium reflective foil', 0.0004, 0.05, 2700, 900, 1000000),
+      layer('PUF insulation', 0.04, 0.024, 38, 1400, 60),
+      layer('Inner liner (polyester)', 0.001, 0.2, 1200, 1400, 1000),
+    ],
+  },
+  {
+    id: 'tent-wall-basic',
+    name: 'Tent wall — single skin / air gap / liner',
+    category: 'wall',
+    note: 'The uninsulated tent: a single skin and a liner with only the air between them. Cheap, light, and thermally almost transparent — it is the honest baseline a tent is improved from.',
+    cost: 1500,
+    solarAbsorptance: 0.35,
+    emissivity: 0.9,
+    color: '#cdbb9c',
+    roughness: 0.9,
+    metalness: 0,
+    layers: [
+      layer('PVC-coated polyester fabric', 0.0008, 0.16, 1300, 1400, 3000),
+      layer('Still-air gap', 0.04, 0.28, 1.2, 1005, 1),
+      layer('Inner liner (polyester)', 0.001, 0.2, 1200, 1400, 1000),
+    ],
+  },
+  {
+    id: 'cabin-wall-panel',
+    name: 'Cabin wall — steel skin / PUF core / plywood liner',
+    category: 'wall',
+    note: 'A rigid prefabricated panel. The foam core carries the resistance and the plywood lining gives the interior a surface that does not condense as readily as bare metal.',
+    cost: 3400,
+    solarAbsorptance: 0.5,
+    emissivity: 0.88,
+    color: '#a2abb5',
+    roughness: 0.7,
+    metalness: 0.25,
+    layers: [
+      layer('Profiled steel skin', 0.0006, 50, 7850, 480, 1000000),
+      layer('PUF foam core', 0.06, 0.024, 38, 1400, 60),
+      layer('Plywood liner', 0.012, 0.13, 550, 1600, 100),
+    ],
+  },
+  {
+    id: 'bunker-wall-earth',
+    name: 'Bunker wall — soil berm / membrane / RCC / lining',
+    category: 'wall',
+    note: 'A semi-underground position: soil backfill outside, a damp-proof membrane, a concrete structural wall and an internal lining. The soil is the insulation and the mass; the membrane is what keeps it dry.',
+    cost: 5200,
+    solarAbsorptance: 0.6,
+    emissivity: 0.9,
+    color: '#6f5b45',
+    roughness: 1,
+    metalness: 0,
+    layers: [
+      layer('Earth berm (compacted soil)', 0.6, 0.9, 1800, 1000, 8),
+      layer('Damp-proof membrane', 0.002, 0.2, 1200, 1400, 50000),
+      layer('Reinforced concrete', 0.25, 1.7, 2400, 880, 100),
+      layer('Internal lining', 0.01, 0.5, 1300, 1000, 10),
+    ],
+  },
+
+  /* ---------------------------- Roofs ---------------------------- */
+  {
+    id: 'tent-roof-insulated',
+    name: 'Tent roof — double skin / air gap / foil / PUF',
+    category: 'roof',
+    note: 'The insulated tent roof. The air gap does the heavy lifting; the foam and the radiant barrier stop what is left.',
+    cost: 2800,
+    solarAbsorptance: 0.35,
+    emissivity: 0.9,
+    color: '#cdbb9c',
+    roughness: 0.85,
+    metalness: 0,
+    layers: [
+      layer('Outer coated fabric', 0.001, 0.16, 1300, 1400, 3000),
+      layer('Still-air gap', 0.06, 0.28, 1.2, 1005, 1),
+      layer('Aluminium reflective foil', 0.0004, 0.05, 2700, 900, 1000000),
+      layer('PUF insulation', 0.05, 0.024, 38, 1400, 60),
+      layer('Inner liner', 0.001, 0.2, 1200, 1400, 1000),
+    ],
+  },
+  {
+    id: 'cabin-roof-panel',
+    name: 'Cabin roof — sandwich panel / plywood ceiling',
+    category: 'roof',
+    note: 'The rigid module roof. Same panel as the wall, so the module can be lifted and set as one piece.',
+    cost: 3500,
+    solarAbsorptance: 0.45,
+    emissivity: 0.88,
+    color: '#a2abb5',
+    roughness: 0.7,
+    metalness: 0.25,
+    layers: [
+      layer('PUF sandwich panel', 0.06, 0.028, 45, 1400, 60),
+      layer('Plywood ceiling', 0.01, 0.13, 550, 1600, 100),
+    ],
+  },
+  {
+    id: 'bunker-roof-earth',
+    name: 'Bunker roof — soil cover / membrane / RCC',
+    category: 'roof',
+    note: 'An earth-covered roof. The soil cover is what removes the diurnal swing entirely, at the cost of a structural span nobody wants to pay for.',
+    cost: 5600,
+    solarAbsorptance: 0.6,
+    emissivity: 0.9,
+    color: '#6f5b45',
+    roughness: 1,
+    metalness: 0,
+    layers: [
+      layer('Earth cover', 0.4, 0.9, 1800, 1000, 8),
+      layer('Damp-proof membrane', 0.002, 0.2, 1200, 1400, 50000),
+      layer('Reinforced concrete slab', 0.2, 1.7, 2400, 880, 100),
     ],
   },
 ];

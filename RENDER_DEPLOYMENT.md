@@ -1,218 +1,418 @@
-# Deploying on Render
+# 🚀 Render Deployment Guide - SIH Thermal Shelter System
 
-The backend is a FastAPI service. `render.yaml` at the repo root is a Render
-**Blueprint**: it declares the web service, a managed PostgreSQL database, and
-every environment variable the service reads. Clicking "New → Blueprint" is the
-whole deployment.
-
-The frontend deploys separately on Vercel — see [Connecting the
-frontend](#connecting-the-frontend) below.
-
-```
-GitHub repo
-├── render.yaml          ← Blueprint: web service + database + env vars
-├── backend/             ← FastAPI service (this is what Render builds)
-│   ├── .env.example     ← every setting, for local development
-│   ├── .env.render      ← the same settings, for Render
-│   ├── Procfile         ← web: uvicorn app.main:app --host 0.0.0.0 --port $PORT
-│   ├── runtime.txt      ← python-3.11.9
-│   └── requirements.txt ← core deps, incl. the psycopg PostgreSQL driver
-└── frontend/            ← Next.js app (deployed to Vercel, not Render)
-```
+Complete guide to deploy the backend on Render.com (Free tier available)
 
 ---
 
-## 1. Blueprint deploy (recommended)
+## 📋 Prerequisites
 
-1. Go to <https://dashboard.render.com> → **New +** → **Blueprint**.
-2. Connect the repository and select it.
-3. Render reads `render.yaml` and shows two resources before you commit to
-   anything:
-   - **`thermal-shelter-api`** — a Python web service, `rootDir: backend`,
-     health check on `/api/health`.
-   - **`thermal-shelter-db`** — a managed PostgreSQL 16 database.
-4. Edit the one placeholder that Render cannot guess: the `CORS_ORIGINS` value.
-   See [Connecting the frontend](#connecting-the-frontend).
-5. Click **Apply** and wait for the first build.
-
-`DATABASE_URL` needs no attention. The Blueprint injects it from the database
-resource:
-
-```yaml
-- key: DATABASE_URL
-  fromDatabase:
-    name: thermal-shelter-db
-    property: connectionString
-```
-
-Do not also set `DATABASE_URL` by hand — a manual value overrides the injected
-one and points the service at a SQLite file that will not survive a deploy.
-
-### Region and plan
-
-`render.yaml` pins both resources to `singapore` on the free plan. Keep the
-service and the database in the **same region** or every query pays a
-cross-region round trip. Change both, or neither.
+1. **GitHub Account** with your repository
+2. **Render Account** (Sign up at https://render.com - Free!)
+3. Repository URL: `https://github.com/samarthdarak24-cpu/3rd-sih-pb`
 
 ---
 
-## 2. Manual deploy
+## 🎯 Quick Deploy (Automated)
 
-If you would rather not use the Blueprint:
+### Option 1: Blueprint Deploy (Recommended)
 
-1. **Create the database** — New + → PostgreSQL. Note the *Internal Database
-   URL*.
-2. **Create the web service** — New + → Web Service, then set:
+1. **Push render.yaml to your repo** (already included)
 
-   | Field | Value |
-   |---|---|
-   | Root Directory | `backend` |
-   | Runtime | Python 3 |
-   | Build Command | `pip install -r requirements.txt` |
-   | Start Command | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
-   | Health Check Path | `/api/health` |
+2. **Go to Render Dashboard**
+   - Visit: https://dashboard.render.com
+   - Click **"New +"** → **"Blueprint"**
 
-3. **Add the environment variables** — open `backend/.env.render` and paste its
-   contents into Environment → *Add from .env*, then fill in `DATABASE_URL` and
-   your real `CORS_ORIGINS`.
+3. **Connect Repository**
+   - Connect your GitHub account
+   - Select: `samarthdarak24-cpu/3rd-sih-pb`
+   - Branch: `main`
 
----
+4. **Deploy**
+   - Render will automatically create:
+     - ✅ Backend Web Service
+     - ✅ PostgreSQL Database
+     - ✅ All environment variables
+   - Click **"Apply"**
 
-## 3. Environment variables
+5. **Wait 5-10 minutes** for initial build
 
-`backend/app/config.py` defines **exactly twelve** settings. These are the only
-keys that do anything:
-
-| Variable | Default | Notes |
-|---|---|---|
-| `APP_NAME` | `SIH Thermal Shelter API` | Cosmetic |
-| `VERSION` | `1.0.0` | **Not** `APP_VERSION` |
-| `DEBUG` | `false` | Keep false in production |
-| `DATABASE_URL` | SQLite file | Injected by the Blueprint. Use the `postgresql+psycopg://` scheme |
-| `SQL_ECHO` | `false` | Logs every SQL statement — noisy |
-| `CORS_ORIGINS` | localhost only | **Comma-separated**, not JSON |
-| `OPEN_METEO_BASE` | Open-Meteo archive | Leave as is |
-| `OPEN_METEO_TIMEOUT_S` | `20.0` | Live archive request budget |
-| `LIVE_PROBE_TIMEOUT_S` | `4.0` | Shorter budget before falling back offline |
-| `ENABLE_LIVE_CLIMATE` | `true` | Set `false` for fully deterministic, instant responses |
-| `MODEL_DIR` | `./models` | Git-ignored, so empty on a fresh deploy |
-| `MIN_TRAIN_ROWS` | `200` | Minimum dataset size before training starts |
-
-`PYTHON_VERSION` is read by Render itself, not by the app.
-
-Anything else — `SECRET_KEY`, `OPTIMIZATION_ALGORITHM`,
-`OPTIMIZATION_GENERATIONS`, `CACHE_TYPE`, `SESSION_TIMEOUT_MINUTES`,
-`EXPORT_FORMATS`, `ML_SURROGATE_MODEL`, and the rest — configures nothing. The
-service ignores unknown keys by design, so they are harmless but misleading.
-
-There is **no secret to set**. The service holds no credentials of its own; the
-Open-Meteo API needs no key. If you add one later, use Render's Environment
-page rather than a committed file.
+6. **Your API is live!**
+   - URL: `https://sih-thermal-shelter-api.onrender.com`
+   - Health: `https://sih-thermal-shelter-api.onrender.com/api/health`
+   - Docs: `https://sih-thermal-shelter-api.onrender.com/docs`
 
 ---
 
-## 4. Connecting the frontend
+## 🔧 Manual Deploy (Step by Step)
 
-Two values have to agree, and getting them wrong is the most common failure:
+### Step 1: Create PostgreSQL Database
 
-**On Vercel** (frontend) — set the backend's public URL, with no trailing slash:
+1. **Go to Render Dashboard**
+   - Click **"New +"** → **"PostgreSQL"**
 
-```
-NEXT_PUBLIC_API_URL=https://thermal-shelter-api.onrender.com
-```
+2. **Configure Database**
+   - **Name:** `sih-thermal-shelter-db`
+   - **Database:** `thermal_shelter`
+   - **User:** `thermal_shelter_user`
+   - **Region:** Oregon (or closest to you)
+   - **Plan:** Free
 
-This is already declared in `frontend/vercel.json` as a placeholder; override it
-in **Project → Settings → Environment Variables** so the committed default is
-not used.
+3. **Create Database**
+   - Click **"Create Database"**
+   - Wait 2-3 minutes
+   - **Copy Internal Database URL** (you'll need this!)
 
-**On Render** (backend) — set `CORS_ORIGINS` to the frontend's URL:
+### Step 2: Create Web Service
 
-```
-CORS_ORIGINS=https://your-frontend.vercel.app,http://localhost:3000
-```
+1. **New Web Service**
+   - Click **"New +"** → **"Web Service"**
 
-> **The single most common mistake.** `config.py` splits `CORS_ORIGINS` on
-> commas. A JSON array —
-> `["https://your-frontend.vercel.app","http://localhost:3000"]` — is not
-> parsed into a list; it becomes one malformed origin, and every browser request
-> from the dashboard fails its CORS preflight. Use commas, no brackets, no
-> quotes.
+2. **Connect Repository**
+   - Click **"Connect a repository"**
+   - Authorize GitHub
+   - Select: `samarthdarak24-cpu/3rd-sih-pb`
 
-If you use Vercel preview deployments, add the preview domain too, or those
-builds will be blocked while production works.
+3. **Configure Service**
 
-The frontend does **not** need the backend. With `NEXT_PUBLIC_API_URL` unset the
-app runs every engine in the browser. The backend is an upgrade — climate
-caching, persistence, surrogate serving — not a dependency.
+   **Basic Settings:**
+   - **Name:** `sih-thermal-shelter-api`
+   - **Region:** Oregon (same as database)
+   - **Branch:** `main`
+   - **Root Directory:** `backend`
+   - **Runtime:** `Python 3`
+   - **Build Command:** `pip install -r requirements.txt`
+   - **Start Command:** `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 
----
+   **Instance Type:**
+   - **Plan:** Free (or Starter for better performance)
 
-## 5. Verifying the deployment
+4. **Add Environment Variables**
+
+   Click **"Advanced"** → **"Environment Variables"** → **"Add from .env"**
+
+   Or add manually:
+
+   | Key | Value |
+   |-----|-------|
+   | `PYTHON_VERSION` | `3.11.0` |
+   | `APP_NAME` | `SIH Thermal Shelter Design System` |
+   | `ENVIRONMENT` | `production` |
+   | `DEBUG` | `False` |
+   | `HOST` | `0.0.0.0` |
+   | `DATABASE_URL` | *Paste Internal Database URL from Step 1* |
+   | `CORS_ORIGINS` | `["https://your-frontend-url.vercel.app","http://localhost:3000"]` |
+   | `OPENMETEO_API_URL` | `https://api.open-meteo.com/v1` |
+   | `OPEN_METEO_BASE` | `https://archive-api.open-meteo.com/v1/archive` |
+   | `ENABLE_LIVE_CLIMATE` | `true` |
+   | `USE_ML_OPTIMIZATION` | `False` |
+   | `SECRET_KEY` | *Click "Generate"* |
+
+5. **Create Web Service**
+   - Click **"Create Web Service"**
+   - Render will start building (5-10 minutes)
+
+### Step 3: Verify Deployment
+
+Once deployed, test these endpoints:
 
 ```bash
-# Should return JSON with "status": "ok"
-curl https://thermal-shelter-api.onrender.com/api/health
+# Health check
+curl https://your-service-name.onrender.com/api/health
 
-# Interactive API docs
-open https://thermal-shelter-api.onrender.com/docs
+# Climate API
+curl "https://your-service-name.onrender.com/api/climate?lat=18.5204&lon=73.8567&city=Pune"
+
+# API Documentation
+# Visit in browser:
+https://your-service-name.onrender.com/docs
 ```
 
-Then confirm the catalogue came through, which proves the database and the
-exported JSON both loaded:
+---
+
+## 🔗 Connect Frontend to Backend
+
+### Update Frontend Environment Variables
+
+In your frontend (Next.js), update the API URL:
+
+**Create `.env.local` in frontend root:**
+
+```env
+NEXT_PUBLIC_API_URL=https://your-service-name.onrender.com
+```
+
+**Or in Vercel:**
+- Go to Project Settings → Environment Variables
+- Add: `NEXT_PUBLIC_API_URL` = `https://your-service-name.onrender.com`
+
+### Update CORS Origins
+
+After deploying frontend, update backend CORS:
+
+1. Go to Render Dashboard → Your Service
+2. Environment → Edit `CORS_ORIGINS`
+3. Add your frontend URL:
+   ```json
+   ["https://your-frontend.vercel.app","http://localhost:3000"]
+   ```
+4. Save → Render will auto-redeploy
+
+---
+
+## 📊 Render Dashboard Overview
+
+### Monitoring
+
+**Logs:**
+- Click your service → **"Logs"** tab
+- Real-time logs of your application
+
+**Metrics:**
+- CPU usage
+- Memory usage
+- Request count
+- Response times
+
+**Events:**
+- Deployment history
+- Build logs
+- Crashes and restarts
+
+---
+
+## ⚙️ Environment Variables on Render
+
+### Required Variables
+
+```env
+# Application
+APP_NAME=SIH Thermal Shelter Design System
+ENVIRONMENT=production
+DEBUG=False
+
+# Server (PORT is auto-set by Render)
+HOST=0.0.0.0
+
+# Database (Auto-filled if using Render PostgreSQL)
+DATABASE_URL=${DATABASE_URL}
+
+# CORS (Update with your frontend URLs)
+CORS_ORIGINS=["https://your-frontend.vercel.app"]
+
+# External APIs
+OPENMETEO_API_URL=https://api.open-meteo.com/v1
+OPEN_METEO_BASE=https://archive-api.open-meteo.com/v1/archive
+
+# Security
+SECRET_KEY=<generate-on-render>
+```
+
+### Optional Variables
+
+```env
+# Features
+USE_ML_OPTIMIZATION=False
+ENABLE_ML_FEATURES=True
+ENABLE_ADVANCED_THERMAL_MODEL=True
+ENABLE_COST_OPTIMIZATION=True
+ENABLE_ENERGY_SIMULATION=True
+
+# Performance
+MAX_CONCURRENT_OPTIMIZATIONS=5
+REQUEST_TIMEOUT_SECONDS=300
+
+# Logging
+LOG_LEVEL=INFO
+```
+
+---
+
+## 💰 Render Plans
+
+### Free Tier
+- ✅ 750 hours/month (sleeps after 15 min inactivity)
+- ✅ PostgreSQL database (90 days retention)
+- ✅ Custom domains
+- ✅ Automatic SSL
+- ⚠️ Spins down with inactivity (30s wake-up time)
+
+### Starter Tier ($7/month)
+- ✅ Always on (no sleep)
+- ✅ More resources (512 MB RAM)
+- ✅ Better performance
+
+**Recommendation:** Start with Free, upgrade for SIH demo day!
+
+---
+
+## 🔄 Auto-Deploy on Git Push
+
+Render automatically deploys when you push to GitHub:
 
 ```bash
-curl https://thermal-shelter-api.onrender.com/api/climate/stations
-curl https://thermal-shelter-api.onrender.com/api/materials
+git add .
+git commit -m "Update backend"
+git push origin main
 ```
 
-Finally, load the frontend and check the header. A **Backend** toggle appears
-once `NEXT_PUBLIC_API_URL` is set, and the climate panel's provenance chip
-should read that the FastAPI service answered.
+Render detects changes and redeploys automatically! ✨
 
 ---
 
-## 6. Troubleshooting
+## 🐛 Troubleshooting
 
-| Symptom | Cause |
-|---|---|
-| CORS errors in the browser, but `curl` works | `CORS_ORIGINS` is a JSON array instead of comma-separated, or the frontend URL is missing |
-| `503` from `/api/optimize` | Expected on a fresh deploy. The surrogate gate refused the model, or none is trained — `backend/models/` is git-ignored. Train one, or use the browser engine |
-| `503` at startup, `FileNotFoundError` | A catalogue JSON is missing from `backend/data/`. Regenerate with `npx tsx scripts/export-catalogue.ts` |
-| `503`, `surrogate-failed-validation-gate` | The trained model did not clear the rank-correlation gate. This is the gate working, not a bug |
-| First request after idle takes ~30 s | Free web services spin down when idle and cold-start on the next request |
-| Database connection refused | Service and database in different regions, or `DATABASE_URL` set by hand and overriding the injected value |
-| `DATABASE_URL` works locally, fails on Render | SQLite path. Use the `postgresql+psycopg://` URL from the Render database page |
+### Issue: Build Failed
 
-Free-plan caveats worth knowing before a demo: web services sleep after a period
-of inactivity, and free PostgreSQL instances have a limited lifetime — check
-Render's current pricing page for the exact terms. For a live demo, hit
-`/api/health` a minute beforehand to wake the service.
+**Check:**
+1. Build logs in Render dashboard
+2. Ensure `requirements.txt` is correct
+3. Check Python version compatibility
+
+**Solution:**
+```bash
+# Test locally first
+cd backend
+pip install -r requirements.txt
+python run.py
+```
+
+### Issue: Service Not Starting
+
+**Check:**
+1. Environment variables set correctly
+2. DATABASE_URL is valid
+3. PORT is not hardcoded (Render sets it automatically)
+
+**Solution:**
+- Use `$PORT` in start command
+- Check logs for errors
+
+### Issue: Database Connection Failed
+
+**Check:**
+1. DATABASE_URL environment variable
+2. Database is running
+3. Connection string format
+
+**Solution:**
+- Copy Internal Database URL (not External)
+- Format: `postgresql://user:password@host/database`
+
+### Issue: CORS Errors
+
+**Check:**
+1. CORS_ORIGINS includes your frontend URL
+2. URL format is exact (no trailing slash)
+3. JSON array format: `["url1","url2"]`
+
+**Solution:**
+```env
+CORS_ORIGINS=["https://your-app.vercel.app","http://localhost:3000"]
+```
+
+### Issue: Service Sleeping (Free Tier)
+
+**Expected behavior on free tier:**
+- Service sleeps after 15 minutes of inactivity
+- First request takes 30s to wake up
+
+**Solutions:**
+1. Upgrade to Starter plan ($7/month)
+2. Use a uptime monitor (like UptimeRobot) to ping every 10 min
+3. Accept the cold start (fine for demos)
 
 ---
 
-## 7. What is deliberately not configurable
+## 📱 Monitoring & Alerts
 
-The surrogate's accuracy gate — minimum Spearman rank correlation and maximum
-MAE, per target — lives beside `FEATURE_NAMES` in `backend/app/ml.py`, mirroring
-`ml/surrogate.ts` in the frontend. It is **not** an environment variable, so a
-deployer cannot relax it into usefulness. Only `MIN_TRAIN_ROWS` is tunable.
+### Set Up Health Checks
 
-A model that fails the gate is recorded with `passedGate: false`, reported as
-`surrogateReady: false` by `/api/health`, and refused with HTTP 503 by
-`/api/optimize`. `surrogateReady` requires *every* target to pass, because a
-model that can rank energy but not comfort would rank designs by the wrong
-thing.
+Render automatically monitors: `/api/health`
+
+### External Monitoring (Optional)
+
+**UptimeRobot** (Free):
+1. Sign up: https://uptimerobot.com
+2. Add monitor: `https://your-service.onrender.com/api/health`
+3. Get alerts if down
 
 ---
 
-## 8. Related files
+## 🎯 Pre-Demo Checklist
 
-| File | Purpose |
-|---|---|
-| `render.yaml` | The Blueprint — service, database, env vars |
-| `backend/.env.render` | The same settings as a paste-ready template |
-| `backend/.env.example` | Local development, every setting documented |
-| `backend/Procfile` | Start command (Heroku-style, harmless on Render) |
-| `backend/runtime.txt` | Python version pin |
-| `frontend/vercel.json` | Vercel build config + `NEXT_PUBLIC_API_URL` placeholder |
-| `backend/README.md` | What the service does, and what it deliberately does not |
+- [ ] Backend deployed on Render
+- [ ] Database created and connected
+- [ ] Health endpoint returns 200 OK
+- [ ] API docs accessible at `/docs`
+- [ ] Climate API returns data
+- [ ] Frontend connected to backend
+- [ ] CORS configured correctly
+- [ ] All environment variables set
+- [ ] Service is awake (ping it 5 min before demo!)
+
+---
+
+## 🔗 Useful Links
+
+- **Render Dashboard:** https://dashboard.render.com
+- **Render Docs:** https://render.com/docs
+- **Your Service URL:** `https://sih-thermal-shelter-api.onrender.com`
+- **API Documentation:** `https://sih-thermal-shelter-api.onrender.com/docs`
+- **GitHub Repo:** https://github.com/samarthdarak24-cpu/3rd-sih-pb
+
+---
+
+## 📞 Quick Commands
+
+```bash
+# Test deployed API
+curl https://your-service.onrender.com/api/health
+
+# Check climate endpoint
+curl "https://your-service.onrender.com/api/climate?lat=18.52&lon=73.85"
+
+# View logs (requires Render CLI)
+render logs -s sih-thermal-shelter-api
+
+# Trigger manual deploy
+git commit --allow-empty -m "Trigger deploy"
+git push
+```
+
+---
+
+## ✅ Success Indicators
+
+Your deployment is successful when:
+
+1. ✅ Service status shows **"Live"** (green)
+2. ✅ Health check returns:
+   ```json
+   {
+     "status": "healthy",
+     "version": "1.0.0"
+   }
+   ```
+3. ✅ API docs load at `/docs`
+4. ✅ Climate endpoint returns data
+5. ✅ No errors in logs
+6. ✅ Frontend can connect successfully
+
+---
+
+## 🎉 You're Live!
+
+Your backend is now deployed and accessible worldwide! 
+
+**Next Steps:**
+1. Deploy frontend to Vercel
+2. Connect frontend to backend API
+3. Update CORS with frontend URL
+4. Test complete pipeline
+5. Prepare for SIH demo! 🚀
+
+**Your Live Endpoints:**
+- API: `https://your-service-name.onrender.com`
+- Health: `https://your-service-name.onrender.com/api/health`
+- Docs: `https://your-service-name.onrender.com/docs`
+- Interactive API: `https://your-service-name.onrender.com/redoc`

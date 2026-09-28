@@ -262,37 +262,23 @@ single record written under an older contract raised `KeyError` and took down
 ## Architecture
 
 ```
-second-problem-statement/            ← this repo is a monorepo
-├── frontend/                       Next.js app — deployed on Vercel
-│   ├── app/                        Next.js App Router — the page shell
-│   ├── components/
-│   │   ├── dashboard/              Header, pipeline flow, 7 panels
-│   │   ├── 3d/                     Parametric shelter canvas, floor plan
-│   │   └── ui/                     Primitives
-│   ├── climate/                    Classification, derived climate, provider chain, analysis
-│   ├── thermal/                    Materials, heat balance, PMV/PPD, surface heat, metrics
-│   ├── optimization/               Design space, objective, search, cost, comparison
-│   ├── ml/                         Feature encoding and the surrogate contract
-│   ├── utils/                      Solar geometry, shelter geometry, psychrometrics, units
-│   ├── types/                      The domain types everything else agrees on
-│   ├── store/                      One Zustand store — every panel is a projection of it
-│   ├── api/                        FastAPI client (optional)
-│   ├── scripts/                    Exporters, verification harnesses, benchmarks
-│   ├── vercel.json                 Vercel deploy config (frontend is the Root Directory)
-│   └── package.json
-├── backend/                        FastAPI service — deployed on Render, see its own README
-│   ├── app/                        Routers, climate port, thermal + ML serving
-│   ├── requirements.txt            Python deps (incl. psycopg for Postgres)
-│   ├── runtime.txt / Procfile      Render Python 3.11 + uvicorn start command
-│   └── .env.example
-└── render.yaml                     Render Blueprint — creates the web service + Postgres
+sih-thermal-shelter/
+├── app/                    Next.js App Router — the page shell
+├── components/
+│   ├── dashboard/          Header, pipeline flow, 7 panels
+│   ├── 3d/                 Parametric shelter canvas, floor plan
+│   └── ui/                 Primitives
+├── climate/                Classification, derived climate, provider chain, analysis
+├── thermal/                Materials, heat balance, PMV/PPD, surface heat, metrics
+├── optimization/           Design space, objective, search, cost, comparison
+├── ml/                     Feature encoding and the surrogate contract
+├── utils/                  Solar geometry, shelter geometry, psychrometrics, units
+├── types/                  The domain types everything else agrees on
+├── store/                  One Zustand store — every panel is a projection of it
+├── api/                    FastAPI client (optional)
+├── scripts/                Exporters, verification harnesses, benchmarks
+└── backend/                FastAPI service — see its own README
 ```
-
-> **Deployment layout:** the frontend lives in `frontend/` and the backend in
-> `backend/`. Vercel builds the frontend with **Root Directory = `frontend`**
-> (pick it when importing the repo). Render builds the backend from the
-> `render.yaml` Blueprint at the repo root (`rootDir: backend`). See the
-> *Deployment* section below for the exact steps.
 
 ### Three rules the code follows
 
@@ -364,55 +350,6 @@ decision the climate gets to make. Rammed earth versus a PUF sandwich panel is
 not a decision, it is a different building. If the optimiser cannot make a type
 work in a given climate *within its palette*, that is a finding about the
 climate, not a licence to specify a different building.
-
----
-
-## Deployment
-
-This repo is a monorepo: `frontend/` (Next.js) and `backend/` (FastAPI). They
-deploy to **two different platforms** and talk to each other over HTTP.
-
-### Frontend → Vercel
-
-1. Import this repo in Vercel (New Project → import `second-problem-statement`).
-2. Set **Root Directory = `frontend`** (the `frontend/` folder). Vercel picks up
-   `frontend/vercel.json` automatically.
-3. Build/install commands are already set in `vercel.json`
-   (`npm install` / `npm run build`, output `.next`).
-4. **Environment variable** (Project → Settings → Environment Variables):
-   - `NEXT_PUBLIC_API_URL` → the Render backend URL from below
-     (e.g. `https://thermal-shelter-api.onrender.com`). Leave it blank to run the
-     app fully client-side (it works without the backend).
-5. Deploy. Vercel gives you a `https://<project>.vercel.app` URL.
-
-### Backend → Render
-
-1. In Render, click **New → Blueprint** and select this repo. Render reads
-   `render.yaml` at the repo root and creates two resources:
-   - a free **PostgreSQL** database (`thermal-shelter-db`), and
-   - a free **web service** (`thermal-shelter-api`, Python 3.11, `rootDir: backend`).
-2. The database `DATABASE_URL` is wired in automatically.
-3. **Environment variable to set** on the web service:
-   - `CORS_ORIGINS` → your Vercel URL, e.g.
-     `https://<project>.vercel.app,http://localhost:3000`
-     (the placeholder in `render.yaml` must be replaced with the real domain so
-     the browser is allowed to call the API).
-4. Deploy. Note the service URL and paste it into Vercel's `NEXT_PUBLIC_API_URL`.
-
-### Wiring the two together
-
-- Vercel `NEXT_PUBLIC_API_URL` **→** Render service URL.
-- Render `CORS_ORIGINS` **→** Vercel frontend URL.
-
-Both sides must point at each other or the optional "Backend" mode in the header
-will be blocked by CORS. The app is fully usable without the backend (it runs
-the simulation client-side); the backend only adds persistence and a server-side
-surrogate model.
-
-> `CORS_ORIGINS` is **comma-separated**. A JSON array is not parsed and will
-> break every browser request. See [`RENDER_DEPLOYMENT.md`](RENDER_DEPLOYMENT.md)
-> for the full walkthrough, the complete variable reference and a
-> troubleshooting table.
 
 ---
 

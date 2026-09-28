@@ -16,6 +16,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Grid, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
+import gsap from 'gsap';
 import type { CameraPreset, VisualizationMode } from '@/types';
 import { localSunDirection } from './geometry';
 import { skyColorForSun } from './palette';
@@ -221,7 +222,13 @@ function fitDistance(radius: number, fovDeg: number, aspect: number, margin: num
   return (radius * margin) / Math.max(0.05, Math.sin(limiting / 2));
 }
 
-export function CameraRig({ preset, radius, buildingHeight, enabled }: CameraRigProps) {
+export function CameraRig({
+  preset,
+  radius,
+  buildingHeight,
+  enabled,
+  autoRotate = false,
+}: CameraRigProps & { autoRotate?: boolean }) {
   const { camera, size } = useThree();
   const controlsRef = useRef<React.ComponentRef<typeof OrbitControls>>(null);
 
@@ -229,22 +236,36 @@ export function CameraRig({ preset, radius, buildingHeight, enabled }: CameraRig
      is recomputed on resize as well as on a pose change. `size` is a dependency
      rather than a read, so a panel that grows re-frames instead of cropping. */
   const aspect = size.height > 0 ? size.width / size.height : 1;
-  const fov = (camera as THREE.PerspectiveCamera).fov ?? 42;
+  const fov = (camera as THREE.PerspectiveCamera).fov ?? 40;
 
   useEffect(() => {
     if (preset === 'walk') return;
     const pose = POSES[preset](radius, buildingHeight);
+    const controls = controlsRef.current;
 
     /* Top view is a plan: it needs the whole footprint, and the pose's own
        height term already does that, so it keeps its own framing. */
     if (preset === 'top') {
-      camera.position.set(...pose.position);
-      camera.up.set(0, 1, 0);
-      camera.lookAt(...pose.target);
-      const controls = controlsRef.current;
+      gsap.to(camera.position, {
+        x: pose.position[0],
+        y: pose.position[1],
+        z: pose.position[2],
+        duration: 0.85,
+        ease: 'power2.inOut',
+        onUpdate: () => {
+          camera.up.set(0, 1, 0);
+          controls?.update();
+        },
+      });
       if (controls) {
-        controls.target.set(...pose.target);
-        controls.update();
+        gsap.to(controls.target, {
+          x: pose.target[0],
+          y: pose.target[1],
+          z: pose.target[2],
+          duration: 0.85,
+          ease: 'power2.inOut',
+          onUpdate: () => controls.update(),
+        });
       }
       return;
     }
@@ -253,25 +274,37 @@ export function CameraRig({ preset, radius, buildingHeight, enabled }: CameraRig
     if (direction.lengthSq() < 1e-6) direction.set(1, 1, 1);
     direction.normalize();
 
-    /* The building stands on the ground, so its bounding sphere is centred
-       roughly half way up the massing; the target the pose already chose is the
-       right thing to orbit, so only the *distance* is solved for. */
+    /* Frame closer (margin 0.88) so the building fills the viewport boldly */
     const target = new THREE.Vector3(...pose.target);
-    const distance = fitDistance(radius, fov, aspect, 1.22);
+    const distance = fitDistance(radius, fov, aspect, 0.88);
+    const destPos = target.clone().addScaledVector(direction, distance);
 
-    camera.position.copy(target).addScaledVector(direction, distance);
-    camera.up.set(0, 1, 0);
-    camera.lookAt(target);
+    gsap.to(camera.position, {
+      x: destPos.x,
+      y: destPos.y,
+      z: destPos.z,
+      duration: 0.9,
+      ease: 'power2.inOut',
+      onUpdate: () => {
+        camera.up.set(0, 1, 0);
+        controls?.update();
+      },
+    });
 
-    const controls = controlsRef.current;
     if (controls) {
-      controls.target.copy(target);
-      controls.update();
+      gsap.to(controls.target, {
+        x: target.x,
+        y: target.y,
+        z: target.z,
+        duration: 0.9,
+        ease: 'power2.inOut',
+        onUpdate: () => controls.update(),
+      });
     }
   }, [preset, radius, buildingHeight, camera, aspect, fov]);
 
   /* Top view needs an orthographic-ish framing, so pull the far plane out. */
-  const maxDistance = Math.max(radius * 8, fitDistance(radius, fov, aspect, 1.22) * 2.4);
+  const maxDistance = Math.max(radius * 8, fitDistance(radius, fov, aspect, 0.88) * 2.4);
 
   return (
     <OrbitControls
@@ -279,10 +312,12 @@ export function CameraRig({ preset, radius, buildingHeight, enabled }: CameraRig
       enabled={enabled}
       enableDamping
       dampingFactor={0.08}
-      minDistance={2}
+      autoRotate={autoRotate}
+      autoRotateSpeed={1.4}
+      minDistance={1.2}
       maxDistance={maxDistance}
       maxPolarAngle={Math.PI / 2 - 0.02}
-      target={[0, buildingHeight * 0.45, 0]}
+      target={[0, buildingHeight * 0.42, 0]}
     />
   );
 }

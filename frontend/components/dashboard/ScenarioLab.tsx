@@ -216,7 +216,7 @@ function SweepCard({
             style={{ color: HUE(cell.accentHue, 42) }}
           >
             {cell.score}
-            <span className="text-[10px] font-normal text-muted-foreground">/100</span>
+            <span className="text-[11px] font-normal text-muted-foreground">/100</span>
           </span>
           {isBest ? <Chip tone="good">Best</Chip> : null}
           {isWorst && !isBest ? <Chip tone="warn">Weakest</Chip> : null}

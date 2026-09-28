@@ -306,3 +306,61 @@ export function GroundingShadow({ width, length }: GroundingShadowProps) {
     </mesh>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* Outdoor Site Landscaping (Pine Trees & Shrubs)                     */
+/* ------------------------------------------------------------------ */
+
+export function SiteLandscaping({ width, length }: { width: number; length: number }) {
+  const halfW = width / 2;
+  const halfL = length / 2;
+
+  const trees = [
+    { pos: [-halfW - 2.2, 0, halfL + 0.8] as [number, number, number], scale: 1.2 },
+    { pos: [-halfW - 3.4, 0, halfL - 1.6] as [number, number, number], scale: 0.9 },
+    { pos: [halfW + 2.4, 0, -halfL - 1.2] as [number, number, number], scale: 1.1 },
+    { pos: [halfW + 3.6, 0, halfL + 1.8] as [number, number, number], scale: 1.3 },
+    { pos: [-halfW - 2.8, 0, -halfL - 1.8] as [number, number, number], scale: 1.0 },
+  ];
+
+  const shrubs = [
+    { pos: [-halfW - 1.2, 0.35, halfL - 0.4] as [number, number, number], r: 0.45 },
+    { pos: [halfW + 1.4, 0.4, -halfL + 0.8] as [number, number, number], r: 0.5 },
+    { pos: [halfW + 1.2, 0.3, halfL - 0.8] as [number, number, number], r: 0.38 },
+  ];
+
+  return (
+    <group>
+      {trees.map((t, i) => (
+        <group key={`tree-${i}`} position={t.pos} scale={t.scale}>
+          {/* Trunk */}
+          <mesh position={[0, 0.5, 0]} castShadow>
+            <cylinderGeometry args={[0.09, 0.12, 1.0, 8]} />
+            <meshStandardMaterial color="#451a03" roughness={0.9} />
+          </mesh>
+          {/* Foliage Cones */}
+          <mesh position={[0, 1.4, 0]} castShadow>
+            <coneGeometry args={[0.85, 1.4, 8]} />
+            <meshStandardMaterial color="#14532d" roughness={0.8} />
+          </mesh>
+          <mesh position={[0, 2.2, 0]} castShadow>
+            <coneGeometry args={[0.65, 1.2, 8]} />
+            <meshStandardMaterial color="#166534" roughness={0.8} />
+          </mesh>
+          <mesh position={[0, 2.8, 0]} castShadow>
+            <coneGeometry args={[0.45, 1.0, 8]} />
+            <meshStandardMaterial color="#15803d" roughness={0.8} />
+          </mesh>
+        </group>
+      ))}
+
+      {shrubs.map((s, i) => (
+        <mesh key={`shrub-${i}`} position={s.pos} castShadow>
+          <sphereGeometry args={[s.r, 12, 12]} />
+          <meshStandardMaterial color="#15803d" roughness={0.95} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+

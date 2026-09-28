@@ -67,6 +67,13 @@ export const GLAZING_LABEL: Record<GlazingType, string> = {
 export const MODE_LABEL: Record<VisualizationMode, string> = {
   normal: 'Normal',
   heatmap: 'Heat map',
+  temperature: 'Surface temp',
+  heatflux: 'Heat flux',
+  heatloss: 'Heat loss',
+  humidity: 'Humidity',
+  condensation: 'Condensation',
+  exploded: 'Exploded',
+  section: 'Section',
   airflow: 'Air flow',
   solar: 'Solar path',
   floorplan: 'Floor plan',
@@ -79,6 +86,18 @@ export const MODE_LABEL: Record<VisualizationMode, string> = {
 export const MODE_NOTE: Record<VisualizationMode, string> = {
   normal: 'Materials and envelope as specified.',
   heatmap: 'Absorbed solar radiation per surface for the selected month.',
+  temperature:
+    'Estimated surface temperature per surface — the envelope’s thermal response, not its solar exposure.',
+  heatflux:
+    'Conduction heat flux through each surface, signed — positive into the shelter, negative out of it.',
+  heatloss:
+    'Where heat is escaping, as a rate per surface and as a share of every loss path. Surfaces that are gaining heat are left unshaded.',
+  humidity:
+    'Margin between each surface and the indoor dew point. Below zero means the inner face is condensing.',
+  condensation:
+    'Banded condensation risk on each surface — low, medium or high — from its temperature against the indoor dew point.',
+  exploded: 'The envelope pulled apart so every layer of the build-up is visible.',
+  section: 'A cut through the shelter on the building’s own front-to-back axis.',
   airflow: 'Prevailing wind, cross-ventilation paths and opening positions.',
   solar: 'Sun path for the selected month with the hour marker.',
   floorplan: 'Dimensioned plan with wall poché, openings and north arrow.',

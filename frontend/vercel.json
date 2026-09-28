@@ -3,7 +3,7 @@
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "installCommand": "npm install",
-  "outputDirectory": ".next",
+  "outputDirectory": "out",
   "git": {
     "deploymentEnabled": {
       "main": true
